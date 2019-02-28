@@ -22,6 +22,8 @@
 // plasma
 #include <Plasma/ServiceJob>
 
+class SessionManagement;
+
 class PowerManagementJob : public Plasma::ServiceJob
 {
 
@@ -36,9 +38,9 @@ class PowerManagementJob : public Plasma::ServiceJob
         void start() override;
 
     private:
-        void requestShutDown();
         void setScreenBrightness(int value, bool silent);
         void setKeyboardBrightness(int value, bool silent);
+        SessionManagement *m_session;
 };
 
 #endif // POWERMANAGEMENTJOB_H

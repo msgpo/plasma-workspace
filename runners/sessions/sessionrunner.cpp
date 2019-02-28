@@ -213,29 +213,21 @@ void SessionRunner::run(const Plasma::RunnerContext &context, const Plasma::Quer
 {
     Q_UNUSED(context);
     if (match.data().type() == QVariant::Int) {
-        KWorkSpace::ShutdownType type = KWorkSpace::ShutdownTypeDefault;
-
         switch (match.data().toInt()) {
             case LogoutAction:
-                type = KWorkSpace::ShutdownTypeNone;
+                m_session.requestLogout();
                 break;
             case RestartAction:
-                type = KWorkSpace::ShutdownTypeReboot;
+                m_session.requestReboot();
                 break;
             case ShutdownAction:
-                type = KWorkSpace::ShutdownTypeHalt;
+                m_session.requestShutdown();
                 break;
             case LockAction:
-                lock();
-                return;
+                m_session.lock();
                 break;
         }
-
-        if (type != KWorkSpace::ShutdownTypeDefault) {
-            KWorkSpace::ShutdownConfirm confirm = KWorkSpace::ShutdownConfirmDefault;
-            KWorkSpace::requestShutDown(confirm, type);
-            return;
-        }
+        return;
     }
 
     if (!match.data().toString().isEmpty()) {
@@ -263,18 +255,7 @@ void SessionRunner::run(const Plasma::RunnerContext &context, const Plasma::Quer
         return;
     }
 
-    lock();
     dm.startReserve();
-}
-
-void SessionRunner::lock()
-{
-    QString interface(QStringLiteral("org.freedesktop.ScreenSaver"));
-    org::freedesktop::ScreenSaver screensaver(interface, QStringLiteral("/ScreenSaver"),
-                                              QDBusConnection::sessionBus());
-    if (screensaver.isValid()) {
-        screensaver.Lock();
-    }
 }
 
 #include "sessionrunner.moc"

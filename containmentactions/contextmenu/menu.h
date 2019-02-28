@@ -23,6 +23,8 @@
 #include <QButtonGroup>
 #include <plasma/containmentactions.h>
 
+class SessionManagement;
+
 class ContextMenu : public Plasma::ContainmentActions
 {
     Q_OBJECT
@@ -43,7 +45,6 @@ public Q_SLOTS:
     void runCommand();
     void lockScreen();
     void startLogout();
-    void logout();
 
 private:
     QAction *m_runCommandAction;

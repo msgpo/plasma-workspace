@@ -24,7 +24,7 @@
 #include <KAuthorized>
 
 // kde-workspace/libs
-#include <kworkspace.h>
+#include <sessionmanagement.h>
 
 #include <krunner_interface.h>
 
@@ -47,10 +47,8 @@ void PowerManagementJob::start()
     //qDebug() << "starting operation  ... " << operation;
 
     if (operation == QLatin1String("lockScreen")) {
-        if (KAuthorized::authorizeAction(QStringLiteral("lock_screen"))) {
-            const QString interface(QStringLiteral("org.freedesktop.ScreenSaver"));
-            QDBusInterface screensaver(interface, QStringLiteral("/ScreenSaver"));
-            screensaver.asyncCall(QStringLiteral("Lock"));
+        if (m_session->canLock()) {
+            m_session->lock();
             setResult(true);
             return;
         }
@@ -58,26 +56,44 @@ void PowerManagementJob::start()
         setResult(false);
         return;
     } else if (operation == QLatin1String("suspend") || operation == QLatin1String("suspendToRam")) {
-        Solid::PowerManagement::requestSleep(Solid::PowerManagement::SuspendState, nullptr, nullptr);
-        setResult(Solid::PowerManagement::supportedSleepStates().contains(Solid::PowerManagement::SuspendState));
+        if (m_session->canSuspend()) {
+            m_session->suspend();
+            setResult(true);
+            return;
+        } else {
+            setResult(false);
+        }
         return;
     } else if (operation == QLatin1String("suspendToDisk")) {
-        Solid::PowerManagement::requestSleep(Solid::PowerManagement::HibernateState, nullptr, nullptr);
-        setResult(Solid::PowerManagement::supportedSleepStates().contains(Solid::PowerManagement::HibernateState));
+        if (m_session->canHibernate()) {
+            m_session->hibernate();
+            setResult(true);
+        } else {
+            setResult(false);
+        }
         return;
     } else if (operation == QLatin1String("suspendHybrid")) {
-        Solid::PowerManagement::requestSleep(Solid::PowerManagement::HybridSuspendState, nullptr, nullptr);
-        setResult(Solid::PowerManagement::supportedSleepStates().contains(Solid::PowerManagement::HybridSuspendState));
+//        if (m_session->canHybridSuspend()) {
+//            m_session->hybridSuspend();
+//            setResult(true);
+//        } else {
+//        setResult(false);
+//    }
         return;
     } else if (operation == QLatin1String("requestShutDown")) {
-        requestShutDown();
-        setResult(true);
+        if (m_session->canShutdown()) {
+            m_session->requestShutdown(); //DAVE this might be the "default action" crap
+            setResult(true);
+        } else {
+            setResult(false);
+        }
         return;
     } else if (operation == QLatin1String("switchUser")) {
-        // Taken from kickoff/core/itemhandlers.cpp
-        org::kde::krunner::App krunner(QStringLiteral("org.kde.krunner"), QStringLiteral("/App"), QDBusConnection::sessionBus());
-        krunner.switchUser();
-        setResult(true);
+        if (m_session->canSwitchUser()) {
+            m_session->switchUser();
+            setResult(true);
+        }
+        setResult(false);
         return;
     } else if (operation == QLatin1String("beginSuppressingSleep")) {
         setResult(Solid::PowerManagement::beginSuppressingSleep(parameters().value(QStringLiteral("reason")).toString()));
@@ -124,9 +140,3 @@ void PowerManagementJob::setKeyboardBrightness(int value, bool silent)
     msg << value;
     QDBusConnection::sessionBus().asyncCall(msg);
 }
-
-void PowerManagementJob::requestShutDown()
-{
-    KWorkSpace::requestShutDown();
-}
-

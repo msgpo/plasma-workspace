@@ -7,7 +7,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 
-#include <kdisplaymanager.h>
+#include <sessionmanagementbackend.h>
 
 #include "server.h"
 #include "ksmserver_debug.h"
@@ -55,7 +55,11 @@ void Shutdown::logoutCancelled()
 
 void Shutdown::logoutComplete() {
     runShutdownScripts();
-    KDisplayManager().shutdown( m_shutdownType, KWorkSpace::ShutdownModeDefault);
+    if (m_shutdownType == KWorkSpace::ShutdownTypeHalt) {
+        SessionBackend::self()->shutdown();
+    } else if (m_shutdownType == KWorkSpace::ShutdownTypeReboot) {
+        SessionBackend::self()->reboot();
+    }
 }
 
 void Shutdown::runShutdownScripts()

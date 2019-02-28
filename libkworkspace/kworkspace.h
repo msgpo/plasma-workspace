@@ -111,9 +111,9 @@ namespace KWorkSpace
    * @param sdtype The action to take after logging out. ShutdownType
    * @param sdmode If/When the action should be taken. ShutdownMode
    */
-  KWORKSPACE_EXPORT void requestShutDown( ShutdownConfirm confirm = ShutdownConfirmDefault,
-                                   ShutdownType    sdtype  = ShutdownTypeDefault,
-                                   ShutdownMode    sdmode  = ShutdownModeDefault );
+//   KWORKSPACE_EXPORT void requestShutDown( ShutdownConfirm confirm = ShutdownConfirmDefault,
+//                                    ShutdownType    sdtype  = ShutdownTypeDefault,
+//                                    ShutdownMode    sdmode  = ShutdownModeDefault );
 
   /**
    * Used to check whether a requestShutDown call with the same arguments
@@ -126,9 +126,9 @@ namespace KWorkSpace
    * configuration may prevent the user from requesting a shutdown or
    * reboot.
    */
-  KWORKSPACE_EXPORT bool canShutDown( ShutdownConfirm confirm = ShutdownConfirmDefault,
-                               ShutdownType    sdtype  = ShutdownTypeDefault,
-                               ShutdownMode    sdmode  = ShutdownModeDefault );
+//   KWORKSPACE_EXPORT bool canShutDown( ShutdownConfirm confirm = ShutdownConfirmDefault,
+//                                ShutdownType    sdtype  = ShutdownTypeDefault,
+//                                ShutdownMode    sdmode  = ShutdownModeDefault );
 
   /**
    * Used to check whether a shutdown is currently in progress
