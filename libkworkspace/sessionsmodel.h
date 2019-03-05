@@ -20,21 +20,14 @@
     THE SOFTWARE.
 */
 
-#ifndef SESSIONSMODEL_H
-#define SESSIONSMODEL_H
+#pragma once
 
+#include <QSortFilterProxyModel>
 #include <QAbstractListModel>
 
-#include <kdisplaymanager.h>
+#include "kworkspace_export.h"
 
-#include <functional>
-
-class OrgFreedesktopScreenSaverInterface;
-namespace org {
-    namespace freedesktop {
-        using ScreenSaver = ::OrgFreedesktopScreenSaverInterface;
-    }
-}
+class OrgFreedesktopLogin1SessionInterface;
 
 struct SessionEntry {
     QString realName;
@@ -46,18 +39,16 @@ struct SessionEntry {
     bool isTty;
 };
 
-class KDisplayManager;
+class SessionModelInternal;
 
-class SessionsModel : public QAbstractListModel
+class KWORKSPACE_EXPORT SessionsModel : public QSortFilterProxyModel
 {
     Q_OBJECT
 
     Q_PROPERTY(bool canSwitchUser READ canSwitchUser CONSTANT)
     Q_PROPERTY(bool canStartNewSession READ canStartNewSession CONSTANT)
-    Q_PROPERTY(bool shouldLock READ shouldLock NOTIFY shouldLockChanged)
     Q_PROPERTY(bool showNewSessionEntry MEMBER m_showNewSessionEntry WRITE setShowNewSessionEntry NOTIFY showNewSessionEntryChanged)
     Q_PROPERTY(bool includeUnusedSessions READ includeUnusedSessions WRITE setIncludeUnusedSessions NOTIFY includeUnusedSessionsChanged)
-
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 
 public:
@@ -77,47 +68,55 @@ public:
 
     bool canSwitchUser() const;
     bool canStartNewSession() const;
-    bool shouldLock() const;
     bool includeUnusedSessions() const;
 
     void setShowNewSessionEntry(bool showNewSessionEntry);
     void setIncludeUnusedSessions(bool includeUnusedSessions);
 
     Q_INVOKABLE void reload();
-    Q_INVOKABLE void switchUser(int vt, bool shouldLock = false);
-    Q_INVOKABLE void startNewSession(bool shouldLock = false);
+    Q_INVOKABLE void switchUser(int vt);
+    Q_INVOKABLE void startNewSession();
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QHash<int, QByteArray> roleNames() const override;
 
 signals:
-    void shouldLockChanged();
     void showNewSessionEntryChanged();
     void countChanged();
     void includeUnusedSessionsChanged();
 
     void switchedUser(int vt);
     void startedNewSession();
-    void aboutToLockScreen();
 
 private:
-    void checkScreenLocked(const std::function<void (bool)> &cb);
-
-    KDisplayManager m_displayManager;
-
     QVector<SessionEntry> m_data;
-
-    bool m_shouldLock = true;
-
-    int m_pendingVt = 0;
-    bool m_pendingReserve = false;
+    SessionModelInternal *m_backend;
 
     bool m_showNewSessionEntry = false;
     bool m_includeUnusedSessions = true;
-
-    org::freedesktop::ScreenSaver *m_screensaverInterface = nullptr;
-
 };
 
-#endif // SESSIONSMODEL_H
+class SessionModelInternal : public QAbstractListModel
+{
+public:
+    virtual void switchUser(int index) {};
+    virtual void startNewSession() {};
+
+protected:
+    SessionModelInternal(QObject *parent = nullptr);
+    ~SessionModelInternal() override = default;
+};
+
+class LogindSessonModel : public SessionModelInternal {
+public:
+    LogindSessonModel(QObject *parent);
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+
+    // SessionModelInternal interface
+//    void switchUser(int index) override;
+//    void startNewSession() override;
+private:
+    QVector<SessionEntry> m_sessions;
+};

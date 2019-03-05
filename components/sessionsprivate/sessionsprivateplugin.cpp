@@ -24,7 +24,7 @@
 
 #include <QQmlEngine>
 
-#include "sessionsmodel.h"
+#include <sessionsmodel.h>
 
 void SessionsPrivatePlugin::registerTypes(const char *uri)
 {

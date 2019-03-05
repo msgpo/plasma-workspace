@@ -1,11 +1,6 @@
 set(sessionsprivateplugin_SRCS
-    sessionsmodel.cpp
     sessionsprivateplugin.cpp
 )
-
-qt5_add_dbus_interface(sessionsprivateplugin_SRCS ${SCREENSAVER_DBUS_INTERFACE} screensaver_interface)
-
-kconfig_add_kcfg_files(sessionsprivateplugin_SRCS kscreensaversettings.kcfgc)
 
 add_library(sessionsprivateplugin SHARED ${sessionsprivateplugin_SRCS})
 target_link_libraries(sessionsprivateplugin
