@@ -64,7 +64,8 @@ QStringList allServices(const QLatin1String& prefix)
 int runSync(const QString& program, const QStringList &args, const QStringList &env)
 {
     QProcess p;
-    p.setEnvironment(env);
+    if (!env.isEmpty())
+        p.setEnvironment(QProcess::systemEnvironment() << env);
     p.setProcessChannelMode(QProcess::ForwardedChannels);
     p.start(program, args);
     qDebug() << "started..." << program << args;
