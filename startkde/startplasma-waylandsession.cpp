@@ -67,7 +67,7 @@ int main(int /*argc*/, char** /*argv*/)
     waitForKonqi();
     out << "startplasma-waylandsession: Shutting down...\n";
 
-    runSync("kdeinit5_shutdown", {});
+    runSync(QStringLiteral("kdeinit5_shutdown"), {});
 
     cleanupX11();
     out << "startplasma-waylandsession: Done.\n";

@@ -29,7 +29,7 @@ int main(int /*argc*/, char** /*argv*/)
     setupCursor(true);
 
     {
-        KConfig fonts("kcmfonts");
+        KConfig fonts(QStringLiteral("kcmfonts"));
         KConfigGroup group = fonts.group("General");
         auto dpiSetting = group.readEntry("forceFontDPIWayland", 96);
         auto dpi = dpiSetting == 0 ? 96 : dpiSetting;
@@ -38,7 +38,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // Query whether org.freedesktop.locale1 is available. If it is, try to
     // set XKB_DEFAULT_{MODEL,LAYOUT,VARIANT,OPTIONS} accordingly.
-    if (QDBusConnection::systemBus().interface()->isServiceRegistered("org.freedesktop.locale1")) {
+    if (QDBusConnection::systemBus().interface()->isServiceRegistered(QStringLiteral("org.freedesktop.locale1"))) {
         auto queryAndSet = [](const QByteArray &var, const QByteArray & value) {
             QDBusInterface iface(QStringLiteral("org.freedesktop.locale1"), QStringLiteral("/org/freedesktop/locale1"), QStringLiteral("org.freedesktop.locale1"), QDBusConnection::systemBus());
 
@@ -67,7 +67,7 @@ int main(int /*argc*/, char** /*argv*/)
         return 1;
     }
 
-    runSync(KWIN_WAYLAND_BIN_PATH, { "--xwayland", "--libinput", "--exit-with-session=" CMAKE_INSTALL_FULL_LIBEXECDIR "/startplasma-waylandsession" });
+    runSync(QStringLiteral(KWIN_WAYLAND_BIN_PATH), { QStringLiteral("--xwayland"), QStringLiteral("--libinput"), QStringLiteral("--exit-with-session=" CMAKE_INSTALL_FULL_LIBEXECDIR "/startplasma-waylandsession") });
 
     out << "startplasmacompositor: Shutting down...\n";
     cleanupPlasmaEnvironment();
