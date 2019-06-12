@@ -43,6 +43,14 @@ private:
     void autoStart(int phase);
 };
 
+class SleepJob: public KJob
+{
+Q_OBJECT
+public:
+    SleepJob();
+    void start() override;
+};
+
 class KCMInitJob: public KJob
 {
 Q_OBJECT

@@ -58,6 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <QDir>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QProcess>
 
 class Phase: public KCompositeJob
 {
@@ -91,6 +92,7 @@ public:
         qCDebug(KSESSION) << "Phase 0";
         addSubjob(new AutoStartAppsJob(0));
         addSubjob(new KCMInitJob(1));
+        addSubjob(new SleepJob());
     }
 };
 
@@ -123,6 +125,17 @@ public:
         runUserAutostart();
     }
 };
+
+SleepJob::SleepJob()
+{
+}
+
+void SleepJob::start()
+{
+    auto t = new QTimer(this);
+    connect(t, &QTimer::timeout, this, [this]() {emitResult();});
+    t->start(100);
+}
 
 // Put the notification in its own thread as it can happen that
 // PulseAudio will start initializing with this, so let's not
@@ -186,6 +199,8 @@ Startup::Startup(QObject *parent):
     auto phase2 = new StartupPhase2(this);
 //    auto restoreSession = new RestoreSessionJob(ksmserver);
 
+    QProcess::startDetached(QStringLiteral("kwin_x11"));
+
 //    connect(ksmserver, &KSMServer::windowManagerLoaded, phase0, &KJob::start);
     connect(phase0, &KJob::finished, phase1, &KJob::start);
 
@@ -195,7 +210,7 @@ Startup::Startup(QObject *parent):
 
 //    connect(phase1, &KJob::finished, restoreSession, &KJob::start);
 //    connect(restoreSession, &KJob::finished, phase2, &KJob::start);
-    upAndRunning("ksmserver");
+    upAndRunning(QStringLiteral("ksmserver"));
 
 //DAVE - replace this
     connect(phase1, &KJob::finished, phase2, &KJob::start);
