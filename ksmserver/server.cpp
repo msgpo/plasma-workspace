@@ -954,7 +954,6 @@ void KSMServer::storeSession()
     cg.writeEntry( "count", count );
 
     KConfigGroup cg2( config, "General");
-    cg2.writeEntry( "screenCount", ScreenCount(QX11Info::display()));
 
     storeLegacySession(config.data());
     config->sync();
