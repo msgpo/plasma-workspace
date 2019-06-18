@@ -8,8 +8,8 @@ set(plasma_session_SRCS
 
 ecm_qt_declare_logging_category(plasma_session_SRCS  HEADER debug.h IDENTIFIER KSESSION CATEGORY_NAME org.kde.plasma.session)
 
+qt5_add_dbus_adaptor( plasma_session_SRCS org.kde.Startup.xml startup.h Startup)
 qt5_add_dbus_adaptor( plasma_session_SRCS org.kde.Shutdown.xml shutdown.h Shutdown)
-
 qt5_add_dbus_interface( plasma_session_SRCS org.kde.Shutdown.xml shutdown_interface)
 
 set(kcminit_adaptor ${plasma-workspace_SOURCE_DIR}/startkde/kcminit/main.h)

@@ -39,6 +39,10 @@ public:
     Startup(QObject *parent);
     void upAndRunning( const QString& msg );
     void finishStartup();
+public Q_SLOTS:
+    // alternatively we could drop this and have a rule that we /always/ launch everything through klauncher
+    // need resolution from frameworks discussion on kdeinit
+    void updateLaunchEnv(const QString &key, const QString &value);
 private:
     void autoStart(int phase);
 };

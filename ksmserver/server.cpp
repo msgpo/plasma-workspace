@@ -89,6 +89,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <QX11Info>
 #include <krandom.h>
 #include <klauncher_interface.h>
+#include <startup_interface.h>
 #include <qstandardpaths.h>
 
 #include "kscreenlocker_interface.h"
@@ -690,6 +691,9 @@ KSMServer::KSMServer( const QString& windowManager, InitFlags flags )
         // Pass env. var to kdeinit.
         org::kde::KLauncher klauncher( QStringLiteral( "org.kde.klauncher5" ), QStringLiteral( "/KLauncher" ), QDBusConnection::sessionBus());
         klauncher.setLaunchEnv( QStringLiteral( "SESSION_MANAGER" ), QString::fromLocal8Bit( (const char*) session_manager ) );
+
+        org::kde::Startup startup(QStringLiteral("org.kde.Startup"), QStringLiteral("/Startup"), QDBusConnection::sessionBus());
+        startup.updateLaunchEnv( QStringLiteral( "SESSION_MANAGER" ), QString::fromLocal8Bit( (const char*) session_manager ) );
 
         free(session_manager);
     }

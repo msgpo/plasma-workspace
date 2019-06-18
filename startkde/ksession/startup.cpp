@@ -60,6 +60,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <QTimer>
 #include <QProcess>
 
+#include "startupadaptor.h"
+
 class Phase: public KCompositeJob
 {
 Q_OBJECT
@@ -194,13 +196,18 @@ class NotificationThread : public QThread
 Startup::Startup(QObject *parent):
     QObject(parent)
 {
+    new StartupAdaptor(this);
+    QDBusConnection::sessionBus().registerObject(QStringLiteral("/Startup"), QStringLiteral("org.kde.Startup"), this);
+    QDBusConnection::sessionBus().registerService(QStringLiteral("org.kde.Startup"));
+
     auto phase0 = new StartupPhase0(this);
     auto phase1 = new StartupPhase1(this);
     auto phase2 = new StartupPhase2(this);
 //    auto restoreSession = new RestoreSessionJob(ksmserver);
 
-    auto kwinJob = new StartServiceJob(QStringLiteral("kwin_x11"), QStringLiteral("org.kde.KWin"));
-    kwinJob->start();
+    //currently still started by ksmserver
+//    auto kwinJob = new StartServiceJob(QStringLiteral("kwin_x11"), QStringLiteral("org.kde.KWin"));
+//    kwinJob->start();
 
     auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
     ksmserverJob->exec();
@@ -244,6 +251,11 @@ void Startup::finishStartup()
 //    ksmserver->state = KSMServer::Idle;
 //    ksmserver->setupXIOErrorHandler();
     upAndRunning(QStringLiteral("ready"));
+}
+
+void Startup::updateLaunchEnv(const QString &key, const QString &value)
+{
+    qputenv(key.toLatin1(), value.toLatin1());
 }
 
 KCMInitJob::KCMInitJob(int phase)

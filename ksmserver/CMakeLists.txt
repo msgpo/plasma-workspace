@@ -29,6 +29,9 @@ qt5_add_dbus_interface( ksmserver_KDEINIT_SRCS org.kde.LogoutPrompt.xml logoutpr
 set(klauncher_xml ${KINIT_DBUS_INTERFACES_DIR}/kf5_org.kde.KLauncher.xml)
 qt5_add_dbus_interface( ksmserver_KDEINIT_SRCS ${klauncher_xml} klauncher_interface )
 
+qt5_add_dbus_interface( ksmserver_KDEINIT_SRCS ../startkde/ksession/org.kde.Startup.xml startup_interface )
+
+
 kf5_add_kdeinit_executable( ksmserver ${ksmserver_KDEINIT_SRCS})
 
 set(CMAKECONFIG_INSTALL_DIR "${KDE_INSTALL_CMAKEPACKAGEDIR}/KSMServerDBusInterface")
