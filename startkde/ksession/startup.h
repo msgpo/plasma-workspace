@@ -96,13 +96,12 @@ private:
     QString m_process;
 };
 
-//class RestoreSessionJob: public KJob
-//{
-//Q_OBJECT
-//public:
-//    RestoreSessionJob(KSMServer *ksmserver);
-//    void start() override;
-//private:
-//    KSMServer *m_ksmserver;
-//};
+class RestoreSessionJob: public KJob
+{
+Q_OBJECT
+public:
+   RestoreSessionJob();
+   void start() override;
+private:
+};
 

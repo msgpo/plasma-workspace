@@ -38,6 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "kcminit_interface.h"
 #include "kded_interface.h"
 #include <klauncher_interface.h>
+#include "ksmserver_interface.h"
 
 #include <KCompositeJob>
 #include <Kdelibs4Migration>
@@ -203,7 +204,7 @@ Startup::Startup(QObject *parent):
     auto phase0 = new StartupPhase0(this);
     auto phase1 = new StartupPhase1(this);
     auto phase2 = new StartupPhase2(this);
-//    auto restoreSession = new RestoreSessionJob(ksmserver);
+    auto restoreSession = new RestoreSessionJob();
 
     //currently still started by ksmserver
 //    auto kwinJob = new StartServiceJob(QStringLiteral("kwin_x11"), QStringLiteral("org.kde.KWin"));
@@ -212,19 +213,15 @@ Startup::Startup(QObject *parent):
     auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
     ksmserverJob->exec();
 
-//    connect(ksmserver, &KSMServer::windowManagerLoaded, phase0, &KJob::start);
     connect(phase0, &KJob::finished, phase1, &KJob::start);
 
     connect(phase1, &KJob::finished, this, [=]() {
 //        ksmserver->setupShortcuts(); // done only here, because it needs kglobalaccel :-/
     });
 
-//    connect(phase1, &KJob::finished, restoreSession, &KJob::start);
-//    connect(restoreSession, &KJob::finished, phase2, &KJob::start);
+   connect(phase1, &KJob::finished, restoreSession, &KJob::start);
+   connect(restoreSession, &KJob::finished, phase2, &KJob::start);
     upAndRunning(QStringLiteral("ksmserver"));
-
-//DAVE - replace this
-    connect(phase1, &KJob::finished, phase2, &KJob::start);
 
     connect(phase1, &KJob::finished, this, []() {
         NotificationThread *loginSound = new NotificationThread();
@@ -296,25 +293,19 @@ void KDEDInitJob::start() {
     connect(watcher, &QDBusPendingCallWatcher::finished, watcher, &QObject::deleteLater);
 }
 
-//RestoreSessionJob::RestoreSessionJob(KSMServer *server): KJob(),
-//    m_ksmserver(server)
-//{}
+RestoreSessionJob::RestoreSessionJob():
+    KJob()
+{}
 
-//void RestoreSessionJob::start()
-//{
-//    if (m_ksmserver->defaultSession()) {
-//        QTimer::singleShot(0, this, [this]() {emitResult();});
-//        return;
-//    }
+void RestoreSessionJob::start()
+{
+    OrgKdeKSMServerInterfaceInterface ksmserverIface(QStringLiteral("org.kde.ksmserver"), QStringLiteral("/KSMServer"), QDBusConnection::sessionBus());
+    auto pending = ksmserverIface.restoreSession();
 
-
-//     m_ksmserver->restoreLegacySession(KSharedConfig::openConfig().data());
-//    m_ksmserver->lastAppStarted = 0;
-//    m_ksmserver->lastIdStarted.clear();
-//    m_ksmserver->state = KSMServer::Restoring;
-//    connect(m_ksmserver, &KSMServer::sessionRestored, this, [this]() {emitResult();});
-//    m_ksmserver->tryRestoreNext();
-//}
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this]() {emitResult();});
+    connect(watcher, &QDBusPendingCallWatcher::finished, watcher, &QObject::deleteLater);
+}
 
 void StartupPhase2::runUserAutostart()
 {

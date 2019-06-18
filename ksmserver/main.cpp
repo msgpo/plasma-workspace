@@ -332,7 +332,6 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
         server->restoreSession( QStringLiteral( SESSION_BY_USER ) );
     else
         server->startDefaultSession();
-//     startup->upAndRunning(QStringLiteral( "ksmserver" ));
 
     KDBusService service(KDBusService::Unique);
 

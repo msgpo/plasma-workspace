@@ -111,6 +111,7 @@ public:
 
     // public API
     void performLogout();
+    void restoreSession();
     void restoreSession( const QString &sessionName );
     void startDefaultSession();
     void shutdown( KWorkSpace::ShutdownConfirm confirm,
@@ -253,6 +254,8 @@ private:
     int inhibitCookie;
 
     QDBusMessage m_performLogoutCall;
+    QDBusMessage m_restoreSessionCall;
+
 
     //subSession stuff
     QList<KSMClient*> clientsToKill;

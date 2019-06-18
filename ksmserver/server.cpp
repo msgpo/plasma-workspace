@@ -1109,6 +1109,28 @@ void KSMServer::startDefaultSession()
     launchWM( QList< QStringList >() << wmCommands );
 }
 
+void KSMServer::restoreSession()
+{
+    Q_ASSERT(calledFromDBus());
+    if (defaultSession()) {
+        return;
+   }
+
+   setDelayedReply(true);
+   m_restoreSessionCall = message();
+
+   restoreLegacySession(KSharedConfig::openConfig().data());
+   lastAppStarted = 0;
+   lastIdStarted.clear();
+   state = KSMServer::Restoring;
+   connect(this, &KSMServer::sessionRestored, this, [this]() {
+        auto reply = m_restoreSessionCall.createReply();
+        QDBusConnection::sessionBus().send(reply);
+        m_restoreSessionCall = QDBusMessage();
+   });
+   tryRestoreNext();
+}
+
 void KSMServer::restoreSubSession( const QString& name )
 {
     sessionGroup = QStringLiteral( "SubSession: " ) + name;

@@ -37,8 +37,13 @@
     <signal name="subSessionClosed"/>
     <signal name="subSessionCloseCanceled"/>
     <signal name="subSessionOpened"/>
+
+    <method name="restoreSession">
+        <!-- Restore the main session. Should only be called once on startup -->
+    </method>
+
     <method name="closeSession">
-        <!-- Returns true if the session was closed successfully, false if cancelled by the user-->
+        <!-- Performs a logout and closes the session. Returns true if the session was closed successfully, false if cancelled by the user-->
         <arg type="b" direction="out"/>
     </method>
   </interface>
