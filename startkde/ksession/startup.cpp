@@ -200,6 +200,9 @@ Startup::Startup(QObject *parent):
 //    auto restoreSession = new RestoreSessionJob(ksmserver);
 
     QProcess::startDetached(QStringLiteral("kwin_x11"));
+    QProcess::startDetached(QStringLiteral("ksmserver"));
+
+    //FIXME wait for both
 
 //    connect(ksmserver, &KSMServer::windowManagerLoaded, phase0, &KJob::start);
     connect(phase0, &KJob::finished, phase1, &KJob::start);

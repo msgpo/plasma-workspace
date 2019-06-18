@@ -79,7 +79,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <solid/powermanagement.h>
 
 #include "logoutprompt_interface.h"
-#include "shutdown_interface.h"
+// #include "shutdown_interface.h"
 
 #include <QDesktopWidget>
 #include <QX11Info>
@@ -95,6 +95,15 @@ void KSMServer::logout( int confirm, int sdtype, int sdmode )
     shutdown( (KWorkSpace::ShutdownConfirm)confirm,
             (KWorkSpace::ShutdownType)sdtype,
             (KWorkSpace::ShutdownMode)sdmode );
+}
+
+bool KSMServer::closeSession()
+{
+    Q_ASSERT(calledFromDBus());
+    performLogout();
+    setDelayedReply(true);
+    m_performLogoutCall = message();
+    return false;
 }
 
 bool KSMServer::canShutdown()
@@ -409,6 +418,11 @@ void KSMServer::cancelShutdown( KSMClient* c )
         }
     }
     state = Idle;
+    if (m_performLogoutCall.type() == QDBusMessage::MethodCallMessage) {
+        auto reply = m_performLogoutCall.createReply(false);
+        QDBusConnection::sessionBus().send(reply);
+        m_performLogoutCall = QDBusMessage();
+    }
     emit logoutCancelled();
 }
 
@@ -587,6 +601,11 @@ void KSMServer::completeKillingWM()
 // shutdown is fully complete
 void KSMServer::killingCompleted()
 {
+    if (m_performLogoutCall.type() == QDBusMessage::MethodCallMessage) {
+        auto reply = m_performLogoutCall.createReply(true);
+        QDBusConnection::sessionBus().send(reply);
+        m_performLogoutCall = QDBusMessage();
+    }
     qApp->quit();
 }
 

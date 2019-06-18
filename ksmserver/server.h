@@ -43,6 +43,8 @@ extern "C" {
 #define QT_CLEAN_NAMESPACE 1
 #include <QStringList>
 #include <QObject>
+#include <QDBusContext>
+#include <QDBusMessage>
 
 #include <kworkspace.h>
 #include <kmessagebox.h>
@@ -50,6 +52,7 @@ extern "C" {
 #include <QTimer>
 #include <QTime>
 #include <QMap>
+
 
 #define SESSION_PREVIOUS_LOGOUT "saved at previous logout"
 #define SESSION_BY_USER  "saved by user"
@@ -71,7 +74,7 @@ struct SMData
     };
 typedef QMap<WId,SMData> WindowMap;
 
-class KSMServer : public QObject
+class KSMServer : public QObject, protected QDBusContext
 {
 Q_OBJECT
 public:
@@ -202,6 +205,7 @@ private:
     void restoreSubSession( const QString &name );
 
     void openSwitchUserDialog();
+    bool closeSession();
 
  Q_SIGNALS:
     void subSessionClosed();
@@ -248,6 +252,7 @@ private:
 
     int inhibitCookie;
 
+    QDBusMessage m_performLogoutCall;
 
     //subSession stuff
     QList<KSMClient*> clientsToKill;
