@@ -199,10 +199,11 @@ Startup::Startup(QObject *parent):
     auto phase2 = new StartupPhase2(this);
 //    auto restoreSession = new RestoreSessionJob(ksmserver);
 
-    QProcess::startDetached(QStringLiteral("kwin_x11"));
-    QProcess::startDetached(QStringLiteral("ksmserver"));
+    auto kwinJob = new StartServiceJob(QStringLiteral("kwin_x11"), QStringLiteral("org.kde.KWin"));
+    kwinJob->start();
 
-    //FIXME wait for both
+    auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
+    ksmserverJob->exec();
 
 //    connect(ksmserver, &KSMServer::windowManagerLoaded, phase0, &KJob::start);
     connect(phase0, &KJob::finished, phase1, &KJob::start);
@@ -408,5 +409,22 @@ void AutoStartAppsJob::start() {
         } while (true);
     });
 }
+
+
+StartServiceJob::StartServiceJob(const QString &process, const QString &serviceId):
+    KJob(),
+    m_process(process)
+{
+    auto watcher = new QDBusServiceWatcher(serviceId, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForRegistration, this);
+    connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [=]() {
+        emitResult();
+    });
+}
+
+void StartServiceJob::start()
+{
+    QProcess::startDetached(m_process);
+}
+
 
 #include "startup.moc"

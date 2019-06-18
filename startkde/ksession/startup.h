@@ -79,6 +79,19 @@ private:
     AutoStart m_autoStart;
 };
 
+/**
+ * Launches a process, and waits for the service to appear on the session bus
+ */
+class StartServiceJob: public KJob
+{
+    Q_OBJECT
+public:
+    StartServiceJob(const QString &process, const QString &serviceId);
+    void start() override;
+private:
+    QString m_process;
+};
+
 //class RestoreSessionJob: public KJob
 //{
 //Q_OBJECT
