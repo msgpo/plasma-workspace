@@ -126,10 +126,6 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent *event)
     const QPointF difference = m_lastMousePosition - event->windowPos();
 
     QSizeF minimumSize = QSize(layout->minimumItemWidth(), layout->minimumItemHeight());
-    if (itemContainer->layoutAttached()) {
-        minimumSize.setWidth(qMax(minimumSize.width(), itemContainer->layoutAttached()->property("minimumWidth").toReal()));
-        minimumSize.setHeight(qMax(minimumSize.height(), itemContainer->layoutAttached()->property("minimumHeight").toReal()));
-    }
 
     //Now make minimumSize an integer number of cells
     minimumSize.setWidth(ceil(minimumSize.width() / layout->cellWidth()) * layout->cellWidth());

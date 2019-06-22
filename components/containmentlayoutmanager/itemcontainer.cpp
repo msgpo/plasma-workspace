@@ -56,6 +56,9 @@ ItemContainer::ItemContainer(QQuickItem *parent)
 
 ItemContainer::~ItemContainer()
 {
+    if (m_contentItem) {
+        m_contentItem->setEnabled(true);
+    }
 }
 
 QString ItemContainer::key() const

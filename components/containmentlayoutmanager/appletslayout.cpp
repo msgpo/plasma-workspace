@@ -525,7 +525,7 @@ void AppletsLayout::appletRemoved(QObject *applet)
 AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuickItem *appletItem)
 {
     AppletContainer *container = m_containerForApplet.value(appletItem);
-
+qWarning()<<appletItem<<container;
     if (container) {
         return container;
     }
