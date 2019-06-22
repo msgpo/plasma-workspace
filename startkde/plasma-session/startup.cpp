@@ -208,7 +208,8 @@ Startup::Startup(QObject *parent):
 
     //this includes starting kwin (currently)
     auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
-    ksmserverJob->exec();
+
+    connect(ksmserverJob, &KJob::finished, phase0, &KJob::start);
 
     connect(phase0, &KJob::finished, phase1, &KJob::start);
 
@@ -222,7 +223,7 @@ Startup::Startup(QObject *parent):
         loginSound->start();});
     connect(phase2, &KJob::finished, this, &Startup::finishStartup);
 
-    phase0->start();
+    ksmserverJob->start();
 }
 
 void Startup::upAndRunning( const QString& msg )
