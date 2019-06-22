@@ -1,5 +1,4 @@
 /*****************************************************************
-ksmserver - the KDE session management server
 
 Copyright 2000 Matthias Ettrich <ettrich@kde.org>
 Copyright 2005 Lubos Lunak <l.lunak@kde.org>
@@ -206,8 +205,9 @@ Startup::Startup(QObject *parent):
     auto phase2 = new StartupPhase2(this);
     auto restoreSession = new RestoreSessionJob();
 
-    //this includes starting kwin (currently)
-    auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
+    // this includes starting kwin (currently)
+    // forward our arguments into kwin to match startplasma expectations
+    auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), qApp->arguments(), QStringLiteral("org.kde.ksmserver"));
 
     connect(ksmserverJob, &KJob::finished, phase0, &KJob::start);
 
@@ -239,8 +239,7 @@ void Startup::upAndRunning( const QString& msg )
 void Startup::finishStartup()
 {
     qCDebug(KSESSION) << "Finished";
-//    ksmserver->state = KSMServer::Idle;
-//    ksmserver->setupXIOErrorHandler();
+//    ksmserver->setupXIOErrorHandler(); //FIXME this is broken, but I don't know what it did
     upAndRunning(QStringLiteral("ready"));
 }
 
@@ -408,9 +407,10 @@ void AutoStartAppsJob::start() {
 }
 
 
-StartServiceJob::StartServiceJob(const QString &process, const QString &serviceId):
+StartServiceJob::StartServiceJob(const QString &process, const QStringList &args, const QString &serviceId):
     KJob(),
-    m_process(process)
+    m_process(process),
+    m_args(args)
 {
     auto watcher = new QDBusServiceWatcher(serviceId, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForRegistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [=]() {
@@ -420,7 +420,7 @@ StartServiceJob::StartServiceJob(const QString &process, const QString &serviceI
 
 void StartServiceJob::start()
 {
-    QProcess::startDetached(m_process);
+    QProcess::startDetached(m_process, m_args);
 }
 
 

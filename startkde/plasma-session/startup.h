@@ -90,10 +90,11 @@ class StartServiceJob: public KJob
 {
     Q_OBJECT
 public:
-    StartServiceJob(const QString &process, const QString &serviceId);
+    StartServiceJob(const QString &process, const QStringList &args, const QString &serviceId);
     void start() override;
 private:
-    QString m_process;
+    const QString m_process;
+    const QStringList m_args;
 };
 
 class RestoreSessionJob: public KJob

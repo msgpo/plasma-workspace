@@ -358,12 +358,8 @@ bool startKSMServer()
     if (desktopLockedAtStart) {
         ksmserverOptions << QStringLiteral("--lockscreen");
     }
-//     const auto exitCode = runSync(QStringLiteral("kwrapper5"), ksmserverOptions);
-//     QStringList ksmserverOptions = { QStringLiteral( "/opt/kde5/bin/") };
-//     if (dl) {
-//         ksmserverOptions << QStringLiteral("--lockscreen");
-//     }
-    const auto exitCode = runSync(QStringLiteral("/opt/kde5/bin/plasma_session"), {});
+
+    const auto exitCode = runSync(QStringLiteral("/opt/kde5/bin/plasma_session"), ksmserverOptions);
 
     if (exitCode == 255) {
         // Startup error
