@@ -500,6 +500,8 @@ void ItemContainer::mouseMoveEvent(QMouseEvent *event)
         setY(y() + event->windowPos().y() - m_lastMousePosition.y());
 
         m_layout->showPlaceHolderForItem(this);
+        
+        emit userDrag(QPointF(x(), y()), event->pos());
     }
     m_lastMousePosition = event->windowPos();
 }

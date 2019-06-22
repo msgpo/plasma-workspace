@@ -150,6 +150,14 @@ protected:
 
 Q_SIGNALS:
 
+    /**
+     * The user manually dragged the ItemContainer around
+     * @param newPosition new position of the ItemContainer in parent coordinates
+     * @param dragCenter position in ItemContainer coordinates of the drag hotspot, i.e. where the user pressed the mouse or the
+     * finger over the ItemContainer
+     */
+    void userDrag(const QPointF &newPosition, const QPointF &dragCenter);
+
     //QML property notifiers
     void layoutChanged();
     void keyChanged();
