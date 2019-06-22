@@ -35,7 +35,6 @@ public:
 
     AppletsLayout *layout() const;
 
-
     void setCellSize(const QSizeF &size);
     QSizeF cellSize() const;
 
@@ -65,6 +64,8 @@ public:
     virtual QString serializeLayout() const = 0;
 
     virtual void parseLayout(const QString &savedLayout) = 0;
+
+    virtual void layoutGeometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry);
 
     /**
      * true if the item is managed by the grid

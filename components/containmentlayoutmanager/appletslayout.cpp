@@ -45,7 +45,11 @@ AppletsLayout::AppletsLayout(QQuickItem *parent)
     connect(m_layoutManager, &AbstractLayoutManager::layoutNeedsSaving, m_saveLayoutTimer, QOverload<>::of(&QTimer::start));
     connect(m_saveLayoutTimer, &QTimer::timeout, this, [this] () {
         if (!m_configKey.isEmpty()) {
-            m_containment->config().writeEntry(m_configKey, m_layoutManager->serializeLayout());
+            const QString serializedConfig = m_layoutManager->serializeLayout();
+            m_containment->config().writeEntry(m_configKey, serializedConfig);
+            //FIXME: something more efficient
+            m_layoutManager->parseLayout(serializedConfig);
+            m_savedSize = size();
         }
     });
 
@@ -365,10 +369,20 @@ void AppletsLayout::releaseSpace(ItemContainer *item)
 
 void AppletsLayout::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
 {
+    if (newGeometry.size() == oldGeometry.size()) {
+        QQuickItem::geometryChanged(newGeometry, oldGeometry);
+        return;
+    }
+
     if (oldGeometry.isEmpty() && !newGeometry.isEmpty()) {
         m_layoutManager->resetLayoutFromConfig();
     } else if (!oldGeometry.isEmpty() && !newGeometry.isEmpty()) {
-        polish();
+        if (newGeometry.size() == m_savedSize) {
+            m_layoutManager->resetLayoutFromConfig();
+        } else {
+            m_layoutManager->layoutGeometryChanged(newGeometry, oldGeometry);
+            polish();
+        }
     }
 
     QQuickItem::geometryChanged(newGeometry, oldGeometry);

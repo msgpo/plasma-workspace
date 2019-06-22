@@ -42,6 +42,8 @@ public:
     GridLayoutManager(AppletsLayout *layout);
     ~GridLayoutManager();
 
+    void layoutGeometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) override;
+
     QString serializeLayout() const override;
     void parseLayout(const QString &savedLayout) override;
 

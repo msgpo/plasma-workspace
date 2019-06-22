@@ -194,6 +194,7 @@ private:
 
     QSizeF m_minimumItemSize;
     QSizeF m_defaultItemSize;
+    QSizeF m_savedSize;
 
     QPointF m_mouseDownPosition = QPoint(-1, -1);
     bool m_mouseDownWasEditMode = false;

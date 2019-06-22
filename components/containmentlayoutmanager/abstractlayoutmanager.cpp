@@ -128,4 +128,10 @@ void AbstractLayoutManager::releaseSpace(ItemContainer *item)
     emit layoutNeedsSaving();
 }
 
+void AbstractLayoutManager::layoutGeometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry) {
+    Q_UNUSED(newGeometry);
+    Q_UNUSED(oldGeometry);
+    // NOTE: Empty base implementation, don't put anything here
+}
+
 #include "moc_abstractlayoutmanager.cpp"

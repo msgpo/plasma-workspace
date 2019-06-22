@@ -76,16 +76,59 @@ bool GridLayoutManager::itemIsManaged(ItemContainer *item)
     return m_pointsForItem.contains(item);
 }
 
+inline void maintainItemEdgeAlignment(QQuickItem *item, const QRectF &newRect, const QRectF &oldRect)
+{
+    const qreal leftDist = item->x() - oldRect.x();
+    const qreal hCenterDist = item->x() + item->width()/2 - oldRect.center().x();
+    const qreal rightDist = oldRect.right() - item->x() - item->width();
+
+    qreal hMin = qMin(qMin(qAbs(leftDist), qAbs(hCenterDist)), qAbs(rightDist));
+    if (qFuzzyCompare(hMin, qAbs(leftDist))) {
+        // Right alignment, do nothing
+    } else if (qFuzzyCompare(hMin, qAbs(hCenterDist))) {
+        item->setX(newRect.center().x() - item->width()/2 + hCenterDist);
+    } else if (qFuzzyCompare(hMin, qAbs(rightDist))) {
+        item->setX(newRect.right() - item->width() - rightDist );
+    }
+
+    const qreal topDist = item->y() - oldRect.y();
+    const qreal vCenterDist = item->y() + item->height()/2 - oldRect.center().y();
+    const qreal bottomDist = oldRect.bottom() - item->y() - item->height();
+
+    qreal vMin = qMin(qMin(qAbs(topDist), qAbs(vCenterDist)), qAbs(bottomDist));
+
+    if (qFuzzyCompare(vMin, qAbs(topDist))) {
+        // Top alignment, do nothing
+    } else if (qFuzzyCompare(vMin, qAbs(vCenterDist))) {
+        item->setY(newRect.center().y() - item->height()/2 + vCenterDist);
+    } else if (qFuzzyCompare(vMin, qAbs(bottomDist))) {
+        item->setY(newRect.bottom() - item->height() - bottomDist );
+    }
+}
+
+void GridLayoutManager::layoutGeometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
+{
+    for (auto *item : layout()->childItems()) {
+        // Stash the old config
+        //m_parsedConfig[item->key()] = {item->x(), item->y(), item->width(), item->height(), item->rotation()};
+        // Move the item to maintain the distance with the anchors point
+        maintainItemEdgeAlignment(item, newGeometry, oldGeometry);
+    }
+}
+
 void GridLayoutManager::resetLayout()
 {
     m_grid.clear();
     m_pointsForItem.clear();
+    //FIXME: blockSignals BAD but we don't want to save the layout in this case
+    blockSignals(true);
     for (auto *item : layout()->childItems()) {
         ItemContainer *itemCont = qobject_cast<ItemContainer*>(item);
         if (itemCont && itemCont != layout()->placeHolder()) {
             positionItemAndAssign(itemCont);
         }
     }
+    blockSignals(false);
 }
 
 void GridLayoutManager::resetLayoutFromConfig()
@@ -119,6 +162,7 @@ bool GridLayoutManager::restoreItem(ItemContainer *item)
         item->setHeight(it.value().height);
         item->setRotation(it.value().rotation);
         positionItemAndAssign(item);
+        //m_parsedConfig.erase();
         return true;
     }
 
