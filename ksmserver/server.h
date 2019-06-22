@@ -118,6 +118,8 @@ public:
                    KWorkSpace::ShutdownType sdtype,
                    KWorkSpace::ShutdownMode sdmode );
 
+    void setupShortcuts();
+
 Q_SIGNALS:
     void windowManagerLoaded();
     void logoutCancelled();
@@ -184,7 +186,6 @@ private:
     WId windowWmClientLeader(WId w);
     QByteArray windowSessionId(WId w, WId leader);
 
-    void setupShortcuts();
     void tryRestoreNext();
     void startupDone();
 
@@ -263,8 +264,6 @@ private:
 
     int sockets[2];
     friend bool readFromPipe(int pipe);
-    friend class RestoreSessionJob;
-    friend class Startup;
 };
 
 #endif

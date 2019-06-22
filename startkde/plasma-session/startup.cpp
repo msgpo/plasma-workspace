@@ -206,21 +206,14 @@ Startup::Startup(QObject *parent):
     auto phase2 = new StartupPhase2(this);
     auto restoreSession = new RestoreSessionJob();
 
-    //currently still started by ksmserver
-//    auto kwinJob = new StartServiceJob(QStringLiteral("kwin_x11"), QStringLiteral("org.kde.KWin"));
-//    kwinJob->start();
-
+    //this includes starting kwin (currently)
     auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), QStringLiteral("org.kde.ksmserver"));
     ksmserverJob->exec();
 
     connect(phase0, &KJob::finished, phase1, &KJob::start);
 
-    connect(phase1, &KJob::finished, this, [=]() {
-//        ksmserver->setupShortcuts(); // done only here, because it needs kglobalaccel :-/
-    });
-
-   connect(phase1, &KJob::finished, restoreSession, &KJob::start);
-   connect(restoreSession, &KJob::finished, phase2, &KJob::start);
+    connect(phase1, &KJob::finished, restoreSession, &KJob::start);
+    connect(restoreSession, &KJob::finished, phase2, &KJob::start);
     upAndRunning(QStringLiteral("ksmserver"));
 
     connect(phase1, &KJob::finished, this, []() {

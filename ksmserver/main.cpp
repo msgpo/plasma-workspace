@@ -311,8 +311,6 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
     }
 
     KSMServer *server = new KSMServer( wm, flags);
-//     auto startup = new Startup(server);
-//     new Shutdown(a);
 
     // for the KDE-already-running check in startkde
     KSelectionOwner kde_running( "_KDE_RUNNING", 0 );
@@ -335,6 +333,7 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
 
     KDBusService service(KDBusService::Unique);
 
+    server->setupShortcuts();
     int ret = a->exec();
     kde_running.release(); // needs to be done before QApplication destruction
     delete a;
