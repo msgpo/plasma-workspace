@@ -189,7 +189,8 @@ bool GridLayoutManager::isRectAvailable(const QRectF &rect)
 
 bool GridLayoutManager::assignSpaceImpl(ItemContainer *item)
 {
-    releaseSpace(item);
+    // Don't emit extra layoutneedssaving signals
+    releaseSpaceImpl(item);
     if (!isRectAvailable(itemGeometry(item))) {
         qWarning()<<"Trying to take space not available"<<item;
         return false;

@@ -29,6 +29,7 @@
 
 // Plasma
 #include <Containment>
+#include <Corona>
 #include <PlasmaQuick/AppletQuickItem>
 
 AppletsLayout::AppletsLayout(QQuickItem *parent)
@@ -50,9 +51,22 @@ AppletsLayout::AppletsLayout(QQuickItem *parent)
             //FIXME: something more efficient
             m_layoutManager->parseLayout(serializedConfig);
             m_savedSize = size();
+            m_containment->corona()->requireConfigSync();
         }
     });
 
+    m_configKeyChangeTimer = new QTimer(this);
+    m_configKeyChangeTimer->setSingleShot(true);
+    m_configKeyChangeTimer->setInterval(100);
+    connect(m_configKeyChangeTimer, &QTimer::timeout, this, [this] () {
+        if (!m_configKey.isEmpty() && m_containment) {
+            m_layoutManager->parseLayout(m_containment->config().readEntry(m_configKey, ""));
+
+            if (width() > 0 && height() > 0) {
+                m_layoutManager->resetLayoutFromConfig();
+            }
+        }
+    });
     m_pressAndHoldTimer = new QTimer(this);
     m_pressAndHoldTimer->setSingleShot(true);
     connect(m_pressAndHoldTimer, &QTimer::timeout, this, [this]() {
@@ -122,13 +136,8 @@ void AppletsLayout::setConfigKey(const QString &key)
 
     m_configKey = key;
 
-    if (!m_configKey.isEmpty() && m_containment) {
-        m_layoutManager->parseLayout(m_containment->config().readEntry(m_configKey, ""));
-
-        if (width() > 0 && height() > 0) {
-            m_layoutManager->resetLayoutFromConfig();
-        }
-    }
+    // Reloading everything from the new config is expansive, event compress it
+    m_configKeyChangeTimer->start();
 
     emit configKeyChanged();
 }
@@ -539,7 +548,7 @@ void AppletsLayout::appletRemoved(QObject *applet)
 AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuickItem *appletItem)
 {
     AppletContainer *container = m_containerForApplet.value(appletItem);
-qWarning()<<appletItem<<container;
+
     if (container) {
         return container;
     }

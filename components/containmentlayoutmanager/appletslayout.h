@@ -175,6 +175,7 @@ private:
 
     QString m_configKey;
     QTimer *m_saveLayoutTimer;
+    QTimer *m_configKeyChangeTimer;
 
     PlasmaQuick::AppletQuickItem *m_containmentItem = nullptr;
     Plasma::Containment *m_containment = nullptr;
