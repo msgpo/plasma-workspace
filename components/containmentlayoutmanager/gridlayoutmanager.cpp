@@ -120,15 +120,14 @@ void GridLayoutManager::resetLayout()
 {
     m_grid.clear();
     m_pointsForItem.clear();
-    //FIXME: blockSignals BAD but we don't want to save the layout in this case
-    blockSignals(true);
     for (auto *item : layout()->childItems()) {
         ItemContainer *itemCont = qobject_cast<ItemContainer*>(item);
         if (itemCont && itemCont != layout()->placeHolder()) {
-            positionItemAndAssign(itemCont);
+            // NOTE: do not use positionItemAndAssign here, because we do not want to emit layoutNeedsSaving, to not save after resize
+            positionItem(itemCont);
+            assignSpaceImpl(itemCont);
         }
     }
-    blockSignals(false);
 }
 
 void GridLayoutManager::resetLayoutFromConfig()
