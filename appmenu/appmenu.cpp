@@ -178,7 +178,13 @@ void AppMenuModule::slotShowMenu(int x, int y, const QString &serviceName, const
 
         //m_menuImporter->fakeUnityAboutToShow(serviceName, menuObjectPath);
 
-        m_menu.data()->popup(QPoint(x, y) / qApp->devicePixelRatio());
+        QPoint pos(x, y);
+//         if (X) {
+//             pos /= qApp->devicePixelRatio()
+//         }
+        m_menu.data()->popup(pos);
+        qDebug() << "popup!" << x << y;
+
 
         QAction *actiontoActivate = importer->actionForId(actionId);
 

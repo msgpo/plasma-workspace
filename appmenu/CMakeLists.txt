@@ -21,6 +21,7 @@ target_link_libraries(appmenu
     KF5::DBusAddons
     KF5::KIOCore
     KF5::WindowSystem
+    KF5::WaylandClient
     ${X11_LIBRARIES}
     dbusmenuqt
 )

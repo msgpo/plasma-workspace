@@ -28,6 +28,14 @@
 
 #include <QMenu>
 #include <QDBusObjectPath>
+#include <QPointer>
+
+namespace KWayland {
+namespace Client {
+    class PlasmaShell;
+    class PlasmaShellSurface;
+}
+}
 
 class VerticalMenu : public QMenu
 {
@@ -42,13 +50,17 @@ public:
     QDBusObjectPath menuObjectPath() const { return m_menuObjectPath; }
     void setMenuObjectPath(const QDBusObjectPath &menuObjectPath) { m_menuObjectPath = menuObjectPath; }
 
+
 protected:
-    void keyPressEvent(QKeyEvent*) override;
-    void keyReleaseEvent(QKeyEvent*) override;
+    bool eventFilter(QObject *, QEvent *) override;
+//     void keyPressEvent(QKeyEvent*) override;
+//     void keyReleaseEvent(QKeyEvent*) override;
     void paintEvent(QPaintEvent*) override;
 
 private:
     QMenu *leafMenu();
+    QPointer<KWayland::Client::PlasmaShell> m_plasmaShellInterface;;
+    QPointer<KWayland::Client::PlasmaShellSurface> m_plasmaShellSurface;
 
     QString m_serviceName;
     QDBusObjectPath m_menuObjectPath;
