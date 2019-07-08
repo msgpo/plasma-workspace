@@ -226,6 +226,6 @@ private:
     ItemContainerPrivate *const d;
     Q_PRIVATE_SLOT(d, void adjustMinimumSize())
     Q_PRIVATE_SLOT(d, void adjustPreferredSize())
-    Q_PRIVATE_SLOT(d, void adjustPreferredSize())
+    Q_PRIVATE_SLOT(d, void adjustMaximumSize())
 };
 
