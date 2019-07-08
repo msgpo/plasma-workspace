@@ -474,10 +474,6 @@ void AppletsLayout::mouseMoveEvent(QMouseEvent *event)
 
 void AppletsLayout::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (!m_editMode && m_editModeCondition == AppletsLayout::Manual) {
-        return;
-    }
-
     if (m_editMode
         && m_mouseDownWasEditMode
         && QPointF(event->windowPos() - m_mouseDownPosition).manhattanLength() < QGuiApplication::styleHints()->startDragDistance()) {
