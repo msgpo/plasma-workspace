@@ -28,8 +28,90 @@
 #include <QGuiApplication>
 #include <QStyleHints>
 
+class ItemContainerPrivate {
+public:
+    ItemContainerPrivate(ItemContainer *container);
+    void adjustMinimumSize();
+    void adjustPreferredSize();
+    void adjustMaximumSize();
+
+    ItemContainer *q;
+};
+
+ ItemContainerPrivate::ItemContainerPrivate(ItemContainer *container)
+    : q(container)
+ {}
+
+void ItemContainerPrivate::adjustMinimumSize()
+{
+    bool changed = false;
+
+    const qreal newMinimumHeight = q->layoutAttached()->property("minimumHeight").toReal();
+    const qreal newMinimumWidth = q->layoutAttached()->property("minimumWidth").toReal();
+
+    if (newMinimumHeight > q->height()) {
+        q->setHeight(newMinimumHeight);
+        changed = true;
+    }
+    if (newMinimumWidth > q->width()) {
+        q->setWidth(newMinimumWidth);
+        changed = true;
+    }
+
+    if (changed) {
+        q->layout()->releaseSpace(q);
+        q->layout()->positionItem(q);
+    }
+}
+
+void ItemContainerPrivate::adjustPreferredSize()
+{
+    bool changed = false;
+
+    const qreal newPreferredHeight = q->layoutAttached()->property("preferredHeight").toReal();
+    const qreal newPreferredWidth = q->layoutAttached()->property("preferredWidth").toReal();
+
+    if (newPreferredHeight > q->height()) {
+        q->setHeight(newPreferredHeight);
+        changed = true;
+    }
+    if (newPreferredWidth > q->width()) {
+        q->setWidth(newPreferredWidth);
+        changed = true;
+    }
+
+    if (changed) {
+        q->layout()->releaseSpace(q);
+        q->layout()->positionItem(q);
+    }
+}
+
+void ItemContainerPrivate::adjustMaximumSize()
+{
+    bool changed = false;
+
+    const qreal newMaximumHeight = q->layoutAttached()->property("preferredHeight").toReal();
+    const qreal newMaximumWidth = q->layoutAttached()->property("preferredWidth").toReal();
+
+    if (newMaximumHeight < q->height()) {
+        q->setHeight(newMaximumHeight);
+        changed = true;
+    }
+    if (newMaximumWidth < q->width()) {
+        q->setWidth(newMaximumWidth);
+        changed = true;
+    }
+
+    if (changed) {
+        q->layout()->releaseSpace(q);
+        q->layout()->positionItem(q);
+    }
+}
+
+
 ItemContainer::ItemContainer(QQuickItem *parent)
-    : QQuickItem(parent)
+    : QQuickItem(parent),
+      d(new ItemContainerPrivate(this))
 {
     setFiltersChildMouseEvents(true);
     setFlags(QQuickItem::ItemIsFocusScope);
@@ -59,6 +141,7 @@ ItemContainer::~ItemContainer()
     if (m_contentItem) {
         m_contentItem->setEnabled(true);
     }
+    delete d;
 }
 
 QString ItemContainer::key() const
@@ -349,6 +432,17 @@ void ItemContainer::componentComplete()
         if (o->inherits("QQuickLayoutAttached")) {
             m_layoutAttached = o;
         }
+    }
+    if (m_layoutAttached) {
+        //NOTE: new syntax cannot be used because we don't have access to the QQuickLayoutAttached class
+        connect(m_layoutAttached, SIGNAL(minimumHeightChanged()), this, SLOT(adjustMinimumSize()));
+        connect(m_layoutAttached, SIGNAL(minimumWidthChanged()), this, SLOT(adjustMinimumSize()));
+
+        connect(m_layoutAttached, SIGNAL(preferredHeightChanged()), this, SLOT(adjustPreferredSize()));
+        connect(m_layoutAttached, SIGNAL(preferredWidthChanged()), this, SLOT(adjustPreferredSize()));
+
+        connect(m_layoutAttached, SIGNAL(maximumHeightChanged()), this, SLOT(adjustMaximumSize()));
+        connect(m_layoutAttached, SIGNAL(maximumWidthChanged()), this, SLOT(adjustMaximumSize()));
     }
     QQuickItem::componentComplete();
 }

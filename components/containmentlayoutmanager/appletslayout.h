@@ -76,13 +76,13 @@ public:
         TopToBottom,
         BottomToTop
     };
-    Q_ENUMS(PreferredLayoutDirection)
+    Q_ENUM(PreferredLayoutDirection)
 
     enum EditModeCondition {
         Manual = 0,
         AfterPressAndHold,
     };
-    Q_ENUMS(EditModeCondition)
+    Q_ENUM(EditModeCondition)
 
     AppletsLayout(QQuickItem *parent = nullptr);
     ~AppletsLayout();

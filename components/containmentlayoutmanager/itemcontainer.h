@@ -29,6 +29,7 @@
 class QTimer;
 
 class ConfigOverlay;
+class ItemContainerPrivate;
 
 class ItemContainer: public QQuickItem
 {
@@ -221,5 +222,10 @@ private:
     bool m_editMode = false;
     bool m_mouseDown = false;
     bool m_mouseSynthetizedFromTouch = false;
+
+    ItemContainerPrivate *const d;
+    Q_PRIVATE_SLOT(d, void adjustMinimumSize())
+    Q_PRIVATE_SLOT(d, void adjustPreferredSize())
+    Q_PRIVATE_SLOT(d, void adjustPreferredSize())
 };
 

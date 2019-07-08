@@ -31,12 +31,14 @@ ContainmentLayoutManager.AppletContainer {
         ? ContainmentLayoutManager.ItemContainer.Manual
         : ContainmentLayoutManager.ItemContainer.AfterPressAndHold
 
-    Layout.minimumWidth: (applet ? applet.Layout.minimumWidth : 0) + background.margins.left + background.margins.right
-    Layout.minimumHeight: (applet ? applet.Layout.minimumHeight : 0) + background.margins.top + background.margins.bottom
-    Layout.preferredWidth: (applet ? applet.Layout.preferredWidth : -1) + background.margins.left + background.margins.right
-    Layout.preferredHeight: (applet ? applet.Layout.preferredHeight : -1) + background.margins.top + background.margins.bottom
-    Layout.maximumWidth: applet ? applet.Layout.maximumWidth + background.margins.left + background.margins.right : Number.POSITIVE_INFINITY
-    Layout.maximumHeight: applet ? applet.Layout.maximumHeight + background.margins.top + background.margins.bottom : Number.POSITIVE_INFINITY
+    Layout.minimumWidth: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumWidth : 0) + background.margins.left + background.margins.right
+    Layout.minimumHeight: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumHeight : 0) + background.margins.top + background.margins.bottom
+
+    Layout.preferredWidth: (applet ? Math.max(applet.Layout.minimumWidth, applet.Layout.preferredWidth) : 0) + background.margins.left + background.margins.right
+    Layout.preferredHeight: (applet ? Math.max(applet.Layout.minimumHeight, applet.Layout.preferredHeight) : 0) + background.margins.top + background.margins.bottom
+
+    Layout.maximumWidth: applet && applet.fullRepresentationItem ? applet.fullRepresentationItem.Layout.maximumWidth + background.margins.left + background.margins.right : Number.POSITIVE_INFINITY
+    Layout.maximumHeight: applet && applet.fullRepresentationItem ? applet.fullRepresentationItem.Layout.maximumHeight + background.margins.top + background.margins.bottom : Number.POSITIVE_INFINITY
 
     leftPadding: background.margins.left
     topPadding: background.margins.top
