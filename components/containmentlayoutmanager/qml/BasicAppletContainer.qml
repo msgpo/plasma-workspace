@@ -34,16 +34,19 @@ ContainmentLayoutManager.AppletContainer {
     Layout.minimumWidth: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumWidth : 0) + background.margins.left + background.margins.right
     Layout.minimumHeight: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumHeight : 0) + background.margins.top + background.margins.bottom
 
-    Layout.preferredWidth: (applet ? Math.max(applet.Layout.minimumWidth, applet.Layout.preferredWidth) : 0) + background.margins.left + background.margins.right
-    Layout.preferredHeight: (applet ? Math.max(applet.Layout.minimumHeight, applet.Layout.preferredHeight) : 0) + background.margins.top + background.margins.bottom
+    Layout.preferredWidth: applet.Layout.preferredWidth
+    Layout.preferredHeight: applet.Layout.preferredHeight
 
-    Layout.maximumWidth: applet && applet.fullRepresentationItem ? applet.fullRepresentationItem.Layout.maximumWidth + background.margins.left + background.margins.right : Number.POSITIVE_INFINITY
-    Layout.maximumHeight: applet && applet.fullRepresentationItem ? applet.fullRepresentationItem.Layout.maximumHeight + background.margins.top + background.margins.bottom : Number.POSITIVE_INFINITY
+    Layout.maximumWidth: applet.Layout.maximumWidth
+    Layout.maximumHeight: applet.Layout.maximumHeight
 
     leftPadding: background.margins.left
     topPadding: background.margins.top
     rightPadding: background.margins.right
     bottomPadding: background.margins.bottom
+
+    initialSize.width: applet.switchWidth + leftPadding + rightPadding
+    initialSize.height: applet.switchHeight + topPadding + bottomPadding
 
     background: PlasmaCore.FrameSvgItem {
         imagePath: contentItem && contentItem.backgroundHints == PlasmaCore.Types.StandardBackground ? "widgets/background" : ""

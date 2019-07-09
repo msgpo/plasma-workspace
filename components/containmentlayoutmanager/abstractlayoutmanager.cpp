@@ -22,6 +22,7 @@
 #include "appletslayout.h"
 #include "itemcontainer.h"
 
+#include <cmath>
 
 AbstractLayoutManager::AbstractLayoutManager(AppletsLayout *layout)
     : QObject(layout),
@@ -41,6 +42,12 @@ AppletsLayout *AbstractLayoutManager::layout() const
 QSizeF AbstractLayoutManager::cellSize() const
 {
     return m_cellSize;
+}
+
+QSizeF AbstractLayoutManager::cellAlignedContainingSize(const QSizeF &size) const
+{
+    return QSizeF(m_cellSize.width() * ceil(size.width() / m_cellSize.width()),
+                  m_cellSize.height() * ceil(size.height() / m_cellSize.height()));
 }
 
 void AbstractLayoutManager::setCellSize(const QSizeF &size)
@@ -108,6 +115,7 @@ void AbstractLayoutManager::positionItem(ItemContainer *item)
 
 void AbstractLayoutManager::positionItemAndAssign(ItemContainer *item)
 {
+    releaseSpace(item);
     positionItem(item);
     assignSpace(item);
 }

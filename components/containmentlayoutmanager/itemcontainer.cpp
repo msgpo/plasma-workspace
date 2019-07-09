@@ -21,12 +21,15 @@
 #include "itemcontainer.h"
 #include "configoverlay.h"
 
+#include <cmath>
 #include <QQmlEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QTimer>
 #include <QGuiApplication>
 #include <QStyleHints>
+
+#include <PlasmaQuick/AppletQuickItem>
 
 class ItemContainerPrivate {
 public:
@@ -42,13 +45,18 @@ public:
     : q(container)
  {}
 
+ //TODO: merge those 3 methods in a single event compressed one
 void ItemContainerPrivate::adjustMinimumSize()
 {
     bool changed = false;
 
+    if (!q->layoutAttached()) {
+        return;
+    }
+
     const qreal newMinimumHeight = q->layoutAttached()->property("minimumHeight").toReal();
     const qreal newMinimumWidth = q->layoutAttached()->property("minimumWidth").toReal();
-
+qWarning()<<"AAAAadjustMinimumSize"<<newMinimumHeight;
     if (newMinimumHeight > q->height()) {
         q->setHeight(newMinimumHeight);
         changed = true;
@@ -68,15 +76,21 @@ void ItemContainerPrivate::adjustPreferredSize()
 {
     bool changed = false;
 
+    if (!q->layoutAttached()) {
+        return;
+    }
+
+    PlasmaQuick::AppletQuickItem *appletItem = qobject_cast<PlasmaQuick::AppletQuickItem *>(q->contentItem());
+
     const qreal newPreferredHeight = q->layoutAttached()->property("preferredHeight").toReal();
     const qreal newPreferredWidth = q->layoutAttached()->property("preferredWidth").toReal();
-
+qWarning()<<"AAAAadjustPreferredSize"<<newPreferredHeight;
     if (newPreferredHeight > q->height()) {
-        q->setHeight(newPreferredHeight);
+        q->setHeight(q->layout()->cellHeight() * ceil(newPreferredHeight / q->layout()->cellHeight()));
         changed = true;
     }
     if (newPreferredWidth > q->width()) {
-        q->setWidth(newPreferredWidth);
+        q->setWidth(q->layout()->cellWidth() * ceil(newPreferredWidth / q->layout()->cellWidth()));
         changed = true;
     }
 
@@ -87,8 +101,12 @@ void ItemContainerPrivate::adjustPreferredSize()
 }
 
 void ItemContainerPrivate::adjustMaximumSize()
-{
+{return;
     bool changed = false;
+
+    if (!q->layoutAttached()) {
+        return;
+    }
 
     const qreal newMaximumHeight = q->layoutAttached()->property("preferredHeight").toReal();
     const qreal newMaximumWidth = q->layoutAttached()->property("preferredWidth").toReal();
@@ -295,6 +313,22 @@ ConfigOverlay *ItemContainer::configOverlayItem() const
     return m_configOverlay;
 }
 
+QSizeF ItemContainer::initialSize() const
+{
+    return m_initialSize;
+}
+
+void ItemContainer::setInitialSize(const QSizeF &size)
+{
+    if (m_initialSize == size) {
+        return;
+    }
+
+    m_initialSize = size;
+
+    emit initialSizeChanged();
+}
+
 bool ItemContainer::configOverlayVisible() const
 {
     return m_configOverlay && m_configOverlay->open();
@@ -443,6 +477,10 @@ void ItemContainer::componentComplete()
 
         connect(m_layoutAttached, SIGNAL(maximumHeightChanged()), this, SLOT(adjustMaximumSize()));
         connect(m_layoutAttached, SIGNAL(maximumWidthChanged()), this, SLOT(adjustMaximumSize()));
+
+        d->adjustMinimumSize();
+        d->adjustPreferredSize();
+        d->adjustMaximumSize();
     }
     QQuickItem::componentComplete();
 }
@@ -670,6 +708,9 @@ void ItemContainer::setContentItem(QQuickItem *item)
     m_contentItem->setSize(QSizeF(width() - m_leftPadding - m_rightPadding,
             height() - m_topPadding - m_bottomPadding));
 
+    d->adjustMinimumSize();
+    d->adjustPreferredSize();
+    d->adjustMaximumSize();
     emit contentItemChanged();
 }
 

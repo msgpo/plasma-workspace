@@ -44,10 +44,13 @@ class ItemContainer: public QQuickItem
     Q_PROPERTY(AppletsLayout::PreferredLayoutDirection preferredLayoutDirection READ preferredLayoutDirection WRITE setPreferredLayoutDirection NOTIFY preferredLayoutDirectionChanged)
 
     Q_PROPERTY(QQmlComponent *configOverlayComponent READ configOverlayComponent WRITE setConfigOverlayComponent NOTIFY configOverlayComponentChanged)
-    //TODO should the write be accessible?
     Q_PROPERTY(bool configOverlayVisible READ configOverlayVisible WRITE setConfigOverlayVisible NOTIFY configOverlayVisibleChanged)
     Q_PROPERTY(QQuickItem *configOverlayItem READ configOverlayItem NOTIFY configOverlayItemChanged)
 
+    /**
+     * Initial size this container asks to have upon creation. only positive values are considered
+     */
+    Q_PROPERTY(QSizeF initialSize READ initialSize WRITE setInitialSize NOTIFY initialSizeChanged)
     // From there mostly a clone of QQC2 Control
     Q_PROPERTY(QQuickItem *contentItem READ contentItem WRITE setContentItem NOTIFY contentItemChanged)
     Q_PROPERTY(QQuickItem *background READ background WRITE setBackground NOTIFY backgroundChanged)
@@ -61,7 +64,7 @@ class ItemContainer: public QQuickItem
     Q_PROPERTY(int bottomPadding READ bottomPadding WRITE setBottomPadding NOTIFY bottomPaddingChanged)
 
     /**
-     * The size of the contents: the size of this item minux the padding
+     * The size of the contents: the size of this item minus the padding
      */
     Q_PROPERTY(int contentWidth READ contentWidth NOTIFY contentWidthChanged)
     Q_PROPERTY(int contentHeight READ contentHeight NOTIFY contentHeightChanged)
@@ -105,6 +108,8 @@ public:
     //TODO: keep this accessible?
     ConfigOverlay *configOverlayItem() const;
 
+    QSizeF initialSize() const;
+    void setInitialSize(const QSizeF &size);
 
     // Control-like api
     QQuickItem *contentItem() const;
@@ -167,6 +172,7 @@ Q_SIGNALS:
     void preferredLayoutDirectionChanged();
     void configOverlayComponentChanged();
     void configOverlayItemChanged();
+    void initialSizeChanged();
     void configOverlayVisibleChanged(bool configOverlayVisile);
 
 
@@ -212,6 +218,7 @@ private:
     QTimer *m_closeEditModeTimer = nullptr;
     QObject *m_layoutAttached = nullptr;
     EditModeCondition m_editModeCondition = Manual;
+    QSizeF m_initialSize;
 
     QPointer<QQmlComponent> m_configOverlayComponent;
     ConfigOverlay *m_configOverlay = nullptr;

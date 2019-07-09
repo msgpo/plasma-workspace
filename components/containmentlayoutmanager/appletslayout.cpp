@@ -517,7 +517,8 @@ void AppletsLayout::appletAdded(QObject *applet, int x, int y)
     container->setX(x);
     container->setY(y);
     container->setVisible(true);
-
+//FIXME: this gets executed too late
+qWarning()<<"$$$$";
     m_layoutManager->positionItemAndAssign(container);
 }
 
@@ -571,25 +572,43 @@ AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuic
         container = new AppletContainer(this);
     }
 
+    container->setVisible(false);
+
+    const QSizeF appletSize = appletItem->size();
+    container->setContentItem(appletItem);
+
     m_containerForApplet[appletItem] = container;
     container->setLayout(this);
     container->setKey(QLatin1String("Applet-") + QString::number(appletItem->applet()->id()));
     container->setX(appletItem->x() - container->leftPadding());
     container->setY(appletItem->y() - container->topPadding());
-    if (appletItem->width() > 0 && appletItem->height() > 0) {
-        container->setWidth(qMax(m_minimumItemSize.width(), appletItem->width() + container->leftPadding() + container->rightPadding()));
-        container->setHeight(qMax(m_minimumItemSize.height(), appletItem->height() + container->topPadding() + container->bottomPadding()));
-    } else {
-        container->setWidth(qMax(m_minimumItemSize.width(), m_defaultItemSize.width()));
-        container->setHeight(qMax(m_minimumItemSize.height(), m_defaultItemSize.height()));
+
+    if (!appletSize.isEmpty()) {
+        container->setWidth(qMax(m_minimumItemSize.width(), appletSize.width() + container->leftPadding() + container->rightPadding()));
+        container->setHeight(qMax(m_minimumItemSize.height(), appletSize.height() + container->topPadding() + container->bottomPadding()));
+
     }
-    container->setContentItem(appletItem);
-    container->setVisible(true);
-    appletItem->setVisible(true);
 
     if (m_appletContainerComponent && createdFromQml) {
         m_appletContainerComponent->completeCreate();
     }
+
+    //NOTE: This has to be done here as we need the component completed to have all the bindings evaluated
+    if (appletSize.isEmpty()) {
+        if (container->initialSize().width() > m_minimumItemSize.width() &&
+            container->initialSize().height() > m_minimumItemSize.height()) {
+            const QSizeF size = m_layoutManager->cellAlignedContainingSize( container->initialSize());
+            container->setWidth(size.width());
+            container->setHeight(size.height());
+        } else {
+            container->setWidth(qMax(m_minimumItemSize.width(), m_defaultItemSize.width()));
+            container->setHeight(qMax(m_minimumItemSize.height(), m_defaultItemSize.height()));
+        }
+    }
+
+    container->setVisible(true);
+    appletItem->setVisible(true);
+
 
     return container;
 }

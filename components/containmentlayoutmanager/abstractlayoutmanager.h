@@ -39,6 +39,11 @@ public:
     QSizeF cellSize() const;
 
     /**
+     * A size aligned to the gid that fully contains the given size
+     */
+    QSizeF cellAlignedContainingSize(const QSizeF &size) const;
+
+    /**
      * Positions the item, does *not* assign the space as taken
      */
     void positionItem(ItemContainer *item);
