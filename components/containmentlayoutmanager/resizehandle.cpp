@@ -106,6 +106,8 @@ bool ResizeHandle::resizeBottom() const
 void ResizeHandle::mousePressEvent(QMouseEvent *event)
 {
     m_lastMousePosition = event->windowPos();
+    m_shouldResizeWidth = true;
+    m_shouldResizeHeight = true;
     event->accept();
 }
 
@@ -124,7 +126,7 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent *event)
 
     layout->releaseSpace(itemContainer);
     const QPointF difference = m_lastMousePosition - event->windowPos();
-
+    
     QSizeF minimumSize = QSize(layout->minimumItemWidth(), layout->minimumItemHeight());
     if (itemContainer->layoutAttached()) {
         minimumSize.setWidth(qMax(minimumSize.width(), itemContainer->layoutAttached()->property("minimumWidth").toReal()));
@@ -135,38 +137,65 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent *event)
     minimumSize.setWidth(ceil(minimumSize.width() / layout->cellWidth()) * layout->cellWidth());
     minimumSize.setHeight(ceil(minimumSize.height() / layout->cellWidth()) * layout->cellHeight());
 
-    if (resizeLeft()) {
-        const qreal x = itemContainer->x() - difference.x();
-        const qreal width = itemContainer->width() + difference.x();
-        // -1 to have a bit of margins around
-        if (layout->isRectAvailable(x - 1, itemContainer->y(), width, itemContainer->height())) {
-            if (width >= minimumSize.width()) {
-                itemContainer->setX(x);
+    if (m_shouldResizeWidth) {
+        if (resizeLeft()) {
+            const qreal x = itemContainer->x() - difference.x();
+            const qreal width = itemContainer->width() + difference.x();
+            // -1 to have a bit of margins around
+            if (layout->isRectAvailable(x - 1, itemContainer->y(), width, itemContainer->height())) {
+                if (width >= minimumSize.width()) {
+                    itemContainer->setX(x);
+                    itemContainer->setWidth(qMax(width, minimumSize.width()));
+                }
             }
-            itemContainer->setWidth(qMax(width, minimumSize.width()));
-        }   
-    }
-    if (resizeTop()) {
-        const qreal y = itemContainer->y() - difference.y();
-        const qreal height = itemContainer->height() + difference.y();
-        // -1 to have a bit of margins around
-        if (layout->isRectAvailable(itemContainer->x(), y - 1, itemContainer->width(), itemContainer->height())) {
-            if (height >= minimumSize.height()) {
-                itemContainer->setY(y);
+            if (width < minimumSize.width()) {
+                m_shouldResizeWidth = false;
             }
-            itemContainer->setHeight(qMax(height, minimumSize.height()));
+        } else if (resizeRight()) {
+            const qreal width = itemContainer->width() - difference.x();
+            if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), width, itemContainer->height()) && width >= minimumSize.width()) {
+                itemContainer->setWidth(qMax(width, minimumSize.width()));
+            }
+            if (width < minimumSize.width()) {
+                m_shouldResizeWidth = false;
+            }
+        }
+    } else {
+        if (resizeLeft()) {
+            m_shouldResizeWidth = event->pos().x() <= width()/3 * 2;
+        } else if (resizeRight()) {
+            m_shouldResizeWidth = event->pos().x() >= width()/3;
         }
     }
-    if (resizeRight()) {
-        const qreal width = itemContainer->width() - difference.x();
-        if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), width, itemContainer->height()) /*&& width >= minimumSize.width()*/) {
-            itemContainer->setWidth(qMax(width, minimumSize.width()));
+
+    if (m_shouldResizeHeight) {
+        if (resizeTop()) {
+            const qreal y = itemContainer->y() - difference.y();
+            const qreal height = itemContainer->height() + difference.y();
+            // -1 to have a bit of margins around
+            if (layout->isRectAvailable(itemContainer->x(), y - 1, itemContainer->width(), itemContainer->height())) {
+                if (height >= minimumSize.height()) {
+                    itemContainer->setY(y);
+                    itemContainer->setHeight(qMax(height, minimumSize.height()));
+                }
+            }
+            if (height < minimumSize.height()) {
+                m_shouldResizeHeight = false;
+            }
+        } else if (resizeBottom()) {
+            const qreal height = itemContainer->height() - difference.y();
+            if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), itemContainer->width(), height) && height >= minimumSize.height()) {
+                itemContainer->setHeight(qMax(height, minimumSize.height()));
+            }
+            if (height < minimumSize.height()) {
+                m_shouldResizeHeight = false;
+            }
         }
-    }
-    if (resizeBottom()) {
-        const qreal height = itemContainer->height() - difference.y();
-        if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), itemContainer->width(), height)) {
-            itemContainer->setHeight(qMax(height, minimumSize.height()));
+    } else {
+        if (resizeTop()) {
+            m_shouldResizeHeight = event->pos().y() <= height()/3 * 2;
+        } else if (resizeBottom()) {
+            m_shouldResizeHeight = event->pos().y() >= height()/3;
         }
     }
 

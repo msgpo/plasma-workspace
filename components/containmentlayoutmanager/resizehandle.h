@@ -66,5 +66,7 @@ private:
     QPointF m_lastMousePosition;
     QPointer<ConfigOverlay> m_configOverlay;
     Corner m_resizeCorner = Left;
+    bool m_shouldResizeWidth = false;
+    bool m_shouldResizeHeight = false;
 };
 
