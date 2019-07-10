@@ -31,11 +31,35 @@ ContainmentLayoutManager.AppletContainer {
         ? ContainmentLayoutManager.ItemContainer.Manual
         : ContainmentLayoutManager.ItemContainer.AfterPressAndHold
 
-    Layout.minimumWidth: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumWidth : 0) + background.margins.left + background.margins.right
-    Layout.minimumHeight: (applet && applet.compactRepresentationItem ? applet.compactRepresentationItem.Layout.minimumHeight : 0) + background.margins.top + background.margins.bottom
+    Layout.minimumWidth: {
+        if (!applet) {
+            return leftPadding + rightPadding;
+        }
 
-    Layout.preferredWidth: applet.Layout.preferredWidth
-    Layout.preferredHeight: applet.Layout.preferredHeight
+        if (applet.preferredRepresentation != applet.fullRepresentation
+            && applet.compactRepresentationItem
+        ) {
+            return applet.compactRepresentationItem.Layout.minimumWidth + leftPadding + rightPadding;
+        } else {
+            return applet.Layout.minimumWidth + leftPadding + rightPadding;
+        }
+    }
+    Layout.minimumHeight: {
+        if (!applet) {
+            return topPadding + bottomPadding;
+        }
+
+        if (applet.preferredRepresentation != applet.fullRepresentation
+            && applet.compactRepresentationItem
+        ) {
+            return applet.compactRepresentationItem.Layout.minimumHeight + topPadding + bottomPadding;
+        } else {
+            return applet.Layout.minimumHeight + topPadding + bottomPadding;
+        }
+    }
+
+    Layout.preferredWidth: Math.max(applet.Layout.minimumWidth, applet.Layout.preferredWidth)
+    Layout.preferredHeight: Math.max(applet.Layout.minimumHeight, applet.Layout.preferredHeight)
 
     Layout.maximumWidth: applet.Layout.maximumWidth
     Layout.maximumHeight: applet.Layout.maximumHeight

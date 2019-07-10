@@ -517,8 +517,7 @@ void AppletsLayout::appletAdded(QObject *applet, int x, int y)
     container->setX(x);
     container->setY(y);
     container->setVisible(true);
-//FIXME: this gets executed too late
-qWarning()<<"$$$$";
+
     m_layoutManager->positionItemAndAssign(container);
 }
 

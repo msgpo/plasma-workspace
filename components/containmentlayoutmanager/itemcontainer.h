@@ -29,7 +29,6 @@
 class QTimer;
 
 class ConfigOverlay;
-class ItemContainerPrivate;
 
 class ItemContainer: public QQuickItem
 {
@@ -188,6 +187,7 @@ Q_SIGNALS:
 private:
     void syncChildItemsGeometry(const QSizeF &size);
     void sendUngrabRecursive(QQuickItem *item);
+    void adjustSizeHints();
 
     //internal accessorts for the contentData QProperty
     static void contentData_append(QQmlListProperty<QObject> *prop, QObject *object);
@@ -216,6 +216,7 @@ private:
     QPointer <AppletsLayout> m_layout;
     QTimer *m_editModeTimer = nullptr;
     QTimer *m_closeEditModeTimer = nullptr;
+    QTimer *m_sizeHintAdjustTimer = nullptr;
     QObject *m_layoutAttached = nullptr;
     EditModeCondition m_editModeCondition = Manual;
     QSizeF m_initialSize;
@@ -229,10 +230,5 @@ private:
     bool m_editMode = false;
     bool m_mouseDown = false;
     bool m_mouseSynthetizedFromTouch = false;
-
-    ItemContainerPrivate *const d;
-    Q_PRIVATE_SLOT(d, void adjustMinimumSize())
-    Q_PRIVATE_SLOT(d, void adjustPreferredSize())
-    Q_PRIVATE_SLOT(d, void adjustMaximumSize())
 };
 
