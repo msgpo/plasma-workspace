@@ -411,7 +411,7 @@ void ItemContainer::sendUngrabRecursive(QQuickItem *item)
 
 void ItemContainer::adjustSizeHints()
 {
-    if (!layoutAttached()) {
+    if (!layoutAttached() || m_editMode) {
         return;
     }
 
