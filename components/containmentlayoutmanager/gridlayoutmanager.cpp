@@ -146,7 +146,9 @@ void GridLayoutManager::resetLayoutFromConfig()
     }
 
     for (auto *item : missingItems) {
-        positionItemAndAssign(item);
+        // NOTE: do not use positionItemAndAssign here, because we do not want to emit layoutNeedsSaving, to not save after resize
+        positionItem(item);
+        assignSpaceImpl(item);
     }
 }
 
@@ -155,13 +157,18 @@ bool GridLayoutManager::restoreItem(ItemContainer *item)
     auto it = m_parsedConfig.find(item->key());
 
     if (it != m_parsedConfig.end()) {
+        // Actual restore
         item->setX(it.value().x);
         item->setY(it.value().y);
         item->setWidth(it.value().width);
         item->setHeight(it.value().height);
         item->setRotation(it.value().rotation);
-        positionItemAndAssign(item);
-        //m_parsedConfig.erase();
+
+        // NOTE: do not use positionItemAndAssign here, because we do not want to emit layoutNeedsSaving, to not save after resize
+        releaseSpaceImpl(item);
+        positionItem(item);
+        assignSpaceImpl(item);
+
         return true;
     }
 

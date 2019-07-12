@@ -186,6 +186,7 @@ private:
     QPointer<ItemContainer> m_placeHolder;
 
     QTimer *m_pressAndHoldTimer;
+    QTimer *m_sizeSyncTimer;
 
     QJSValue m_acceptsAppletCallback;
 
@@ -196,6 +197,7 @@ private:
     QSizeF m_minimumItemSize;
     QSizeF m_defaultItemSize;
     QSizeF m_savedSize;
+    QRectF m_geometryBeforeResolutionChange;
 
     QPointF m_mouseDownPosition = QPoint(-1, -1);
     bool m_mouseDownWasEditMode = false;

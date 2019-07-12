@@ -45,7 +45,7 @@ AppletsLayout::AppletsLayout(QQuickItem *parent)
     m_saveLayoutTimer->setInterval(100);
     connect(m_layoutManager, &AbstractLayoutManager::layoutNeedsSaving, m_saveLayoutTimer, QOverload<>::of(&QTimer::start));
     connect(m_saveLayoutTimer, &QTimer::timeout, this, [this] () {
-        if (!m_configKey.isEmpty()) {
+        if (!m_configKey.isEmpty() && m_containment && m_containment->corona()->isStartupCompleted()) {
             const QString serializedConfig = m_layoutManager->serializeLayout();
             m_containment->config().writeEntry(m_configKey, serializedConfig);
             //FIXME: something more efficient
@@ -64,6 +64,7 @@ AppletsLayout::AppletsLayout(QQuickItem *parent)
 
             if (width() > 0 && height() > 0) {
                 m_layoutManager->resetLayoutFromConfig();
+                m_savedSize = size();
             }
         }
     });
@@ -72,6 +73,27 @@ AppletsLayout::AppletsLayout(QQuickItem *parent)
     connect(m_pressAndHoldTimer, &QTimer::timeout, this, [this]() {
         setEditMode(true);
     });
+
+    m_sizeSyncTimer = new QTimer(this);
+    m_sizeSyncTimer->setSingleShot(true);
+    m_sizeSyncTimer->setInterval(150);
+    connect(m_sizeSyncTimer, &QTimer::timeout, this, [this]() {
+        const QRect newGeom(x(), y(), width(), height());
+        // The size has been restored from the last one it has been saved: restore that exact same layout
+        if (newGeom.size() == m_savedSize) {
+            m_layoutManager->resetLayoutFromConfig();
+
+        // If the resize is consequence of a screen resolution change, queue a relayout maintaining the distance between screen edges
+        } else if (!m_geometryBeforeResolutionChange.isEmpty()) {
+            m_layoutManager->layoutGeometryChanged(newGeom, m_geometryBeforeResolutionChange);
+            m_geometryBeforeResolutionChange = QRectF();
+
+        // Heuristically relayout items only when the plasma startup is fully completed
+        } else {
+            polish();
+        }
+    });
+
     connect(this, &QQuickItem::focusChanged, this, [this]() {
         if (!hasFocus()) {
             setEditMode(false);
@@ -378,20 +400,20 @@ void AppletsLayout::releaseSpace(ItemContainer *item)
 
 void AppletsLayout::geometryChanged(const QRectF &newGeometry, const QRectF &oldGeometry)
 {
+    // Ignore completely moves without resize
     if (newGeometry.size() == oldGeometry.size()) {
         QQuickItem::geometryChanged(newGeometry, oldGeometry);
         return;
     }
 
-    if (oldGeometry.isEmpty() && !newGeometry.isEmpty()) {
-        m_layoutManager->resetLayoutFromConfig();
-    } else if (!oldGeometry.isEmpty() && !newGeometry.isEmpty()) {
-        if (newGeometry.size() == m_savedSize) {
-            m_layoutManager->resetLayoutFromConfig();
-        } else {
-            m_layoutManager->layoutGeometryChanged(newGeometry, oldGeometry);
-            polish();
-        }
+    // Don't care for anythin happening before startup completion
+    if (!m_containment || !m_containment->corona() || !m_containment->corona()->isStartupCompleted()) {
+        return;
+    }
+
+    // Only do a layouting procedure if we received a valid size
+    if (!newGeometry.isEmpty()) {
+        m_sizeSyncTimer->start();
     }
 
     QQuickItem::geometryChanged(newGeometry, oldGeometry);
@@ -400,6 +422,7 @@ void AppletsLayout::geometryChanged(const QRectF &newGeometry, const QRectF &old
 void AppletsLayout::updatePolish()
 {
     m_layoutManager->resetLayout();
+    m_savedSize = size();
 }
 
 void AppletsLayout::componentComplete()
@@ -437,6 +460,17 @@ void AppletsLayout::componentComplete()
         }
     }
 
+    if (m_containment && m_containment->corona()) {
+        connect(m_containment->corona(), &Plasma::Corona::startupCompleted, this, [this](){
+           // m_savedSize = size();
+        });
+        // When the screen geometry changes, we need to know the geometry just before it did, so we can apply out heuristic of keeping the distance with borders constant
+        connect(m_containment->corona(), &Plasma::Corona::screenGeometryChanged, this, [this](int id){
+            if (m_containment->screen() == id) {
+                m_geometryBeforeResolutionChange = QRectF(x(), y(), width(), height());
+            }
+        });
+    }
     QQuickItem::componentComplete();
 }
 
