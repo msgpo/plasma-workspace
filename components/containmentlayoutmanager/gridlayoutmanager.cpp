@@ -378,6 +378,11 @@ QRectF GridLayoutManager::nextAvailableSpace(ItemContainer *item, const QSizeF &
     QSize partialSize;
 
     QPair<int, int> cell(itemCellGeom.y(), itemCellGeom.x());
+    if (direction == AppletsLayout::AppletsLayout::RightToLeft) {
+        cell.second += itemCellGeom.width();
+    } else if (direction == AppletsLayout::AppletsLayout::BottomToTop) {
+        cell.first += itemCellGeom.height();
+    }
 
     while (!isOutOfBounds(cell)) {
 
@@ -416,7 +421,7 @@ QRectF GridLayoutManager::nextAvailableSpace(ItemContainer *item, const QSizeF &
                 const int height = qMin(itemCellGeom.height(), partialSize.height()) * cellSize().height();
 
                 if  (direction == AppletsLayout::RightToLeft) {
-                    return QRectF(cell.second * cellSize().width() - width,
+                    return QRectF((cell.second + 1) * cellSize().width() - width,
                         cell.first * cellSize().height(),
                         width, height);
                 // AppletsLayout::LeftToRight
@@ -461,7 +466,7 @@ QRectF GridLayoutManager::nextAvailableSpace(ItemContainer *item, const QSizeF &
 
                 if (direction == AppletsLayout::BottomToTop) {
                     return QRectF(cell.second * cellSize().width(),
-                        cell.first * cellSize().height() - height,
+                        (cell.first + 1) * cellSize().height() - height,
                         width, height);
                 // AppletsLayout::TopToBottom:
                 } else {
