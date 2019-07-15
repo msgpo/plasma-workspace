@@ -613,13 +613,17 @@ AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuic
     m_containerForApplet[appletItem] = container;
     container->setLayout(this);
     container->setKey(QLatin1String("Applet-") + QString::number(appletItem->applet()->id()));
-    container->setX(appletItem->x() - container->leftPadding());
-    container->setY(appletItem->y() - container->topPadding());
 
-    if (!appletSize.isEmpty()) {
-        container->setWidth(qMax(m_minimumItemSize.width(), appletSize.width() + container->leftPadding() + container->rightPadding()));
-        container->setHeight(qMax(m_minimumItemSize.height(), appletSize.height() + container->topPadding() + container->bottomPadding()));
+    const bool geometryWasSaved = m_layoutManager->restoreItem(container);
 
+    if (!geometryWasSaved) {
+        container->setX(appletItem->x() - container->leftPadding());
+        container->setY(appletItem->y() - container->topPadding());
+
+        if (!appletSize.isEmpty()) {
+            container->setWidth(qMax(m_minimumItemSize.width(), appletSize.width() + container->leftPadding() + container->rightPadding()));
+            container->setHeight(qMax(m_minimumItemSize.height(), appletSize.height() + container->topPadding() + container->bottomPadding()));
+        }
     }
 
     if (m_appletContainerComponent && createdFromQml) {
@@ -627,7 +631,7 @@ AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuic
     }
 
     //NOTE: This has to be done here as we need the component completed to have all the bindings evaluated
-    if (appletSize.isEmpty()) {
+    if (!geometryWasSaved && appletSize.isEmpty()) {
         if (container->initialSize().width() > m_minimumItemSize.width() &&
             container->initialSize().height() > m_minimumItemSize.height()) {
             const QSizeF size = m_layoutManager->cellAlignedContainingSize( container->initialSize());
