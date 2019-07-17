@@ -83,7 +83,7 @@ ResizeHandle::~ResizeHandle()
 
 bool ResizeHandle::resizeBlocked() const
 {
-    return !m_shouldResizeWidth || !m_shouldResizeHeight;
+    return m_resizeWidthBlocked || m_resizeHeightBlocked;
 }
 
 bool ResizeHandle::resizeLeft() const
@@ -106,13 +106,28 @@ bool ResizeHandle::resizeBottom() const
     return m_resizeCorner == Bottom || m_resizeCorner == BottomLeft || m_resizeCorner == BottomRight;
 }
 
+void ResizeHandle::setResizeBlocked(bool width, bool height)
+{
+    if (m_resizeWidthBlocked == width && m_resizeHeightBlocked == height) {
+        return;
+    }
+
+    m_resizeWidthBlocked = width;
+    m_resizeHeightBlocked = height;
+
+    emit resizeBlockedChanged();
+}
 
 
 void ResizeHandle::mousePressEvent(QMouseEvent *event)
 {
-    m_lastMousePosition = event->windowPos();
-    m_shouldResizeWidth = true;
-    m_shouldResizeHeight = true;
+    ItemContainer *itemContainer = m_configOverlay->itemContainer();
+    if (!itemContainer) {
+        return;
+    }
+    m_mouseDownPosition = event->windowPos();
+    m_mouseDownGeometry = QRectF(itemContainer->x(), itemContainer->y(), itemContainer->width(), itemContainer->height());
+    setResizeBlocked(false, false);
     event->accept();
 }
 
@@ -130,7 +145,7 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent *event)
     }
 
     layout->releaseSpace(itemContainer);
-    const QPointF difference = m_lastMousePosition - event->windowPos();
+    const QPointF difference = m_mouseDownPosition - event->windowPos();
     
     QSizeF minimumSize = QSize(layout->minimumItemWidth(), layout->minimumItemHeight());
     if (itemContainer->layoutAttached()) {
@@ -142,61 +157,56 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent *event)
     minimumSize.setWidth(ceil(minimumSize.width() / layout->cellWidth()) * layout->cellWidth());
     minimumSize.setHeight(ceil(minimumSize.height() / layout->cellWidth()) * layout->cellHeight());
 
-    if (m_shouldResizeWidth) {
-        if (resizeLeft()) {
-            const qreal x = itemContainer->x() - difference.x();
-            const qreal width = itemContainer->width() + difference.x();
-            // -1 to have a bit of margins around
-            if (layout->isRectAvailable(x - 1, itemContainer->y(), width, itemContainer->height()) && width >= minimumSize.width()) {
-                itemContainer->setX(x);
-                itemContainer->setWidth(qMax(width, minimumSize.width()));
+    // Horizontal resize
+    if (resizeLeft()) {
+        const qreal width = qMax(minimumSize.width(), m_mouseDownGeometry.width() + difference.x());
+        const qreal x = m_mouseDownGeometry.x() + (m_mouseDownGeometry.width() - width);
 
-            } else {
-                m_shouldResizeWidth = false;
-                emit resizeBlockedChanged();
-            }
-        } else if (resizeRight()) {
-            const qreal width = itemContainer->width() - difference.x();
-            if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), width, itemContainer->height()) && width >= minimumSize.width()) {
-                itemContainer->setWidth(qMax(width, minimumSize.width()));
-            } else {
-                m_shouldResizeWidth = false;
-                emit resizeBlockedChanged();
-            }
+        // -1 to have a bit of margins around
+        if (layout->isRectAvailable(x - 1, m_mouseDownGeometry.y(), width, m_mouseDownGeometry.height())) {
+            itemContainer->setX(x);
+            itemContainer->setWidth(width);
+            setResizeBlocked(m_mouseDownGeometry.width() + difference.x() < minimumSize.width(), m_resizeHeightBlocked);
+        } else {
+            setResizeBlocked(true, m_resizeHeightBlocked);
         }
-    } else {
-        m_shouldResizeWidth = event->pos().x() >= width()/3 && event->pos().x() <= width()/3 * 2;
-        emit resizeBlockedChanged();
+    } else if (resizeRight()) {
+        const qreal width = qMax(minimumSize.width(), m_mouseDownGeometry.width() - difference.x());
+
+        if (layout->isRectAvailable(m_mouseDownGeometry.x(), m_mouseDownGeometry.y(), width, m_mouseDownGeometry.height())) {
+            itemContainer->setWidth(width);
+            setResizeBlocked(m_mouseDownGeometry.width() - difference.x() < minimumSize.width(), m_resizeHeightBlocked);
+        } else {
+            setResizeBlocked(true, m_resizeHeightBlocked);
+        }
     }
 
-    if (m_shouldResizeHeight) {
-        if (resizeTop()) {
-            const qreal y = itemContainer->y() - difference.y();
-            const qreal height = itemContainer->height() + difference.y();
-            // -1 to have a bit of margins around
-            if (layout->isRectAvailable(itemContainer->x(), y - 1, itemContainer->width(), itemContainer->height()) &&height >= minimumSize.height()) {
-                itemContainer->setY(y);
-                itemContainer->setHeight(qMax(height, minimumSize.height()));
-            } else {
-                m_shouldResizeHeight = false;
-                emit resizeBlockedChanged();
-            }
-        } else if (resizeBottom()) {
-            const qreal height = itemContainer->height() - difference.y();
-            if (layout->isRectAvailable(itemContainer->x(), itemContainer->y(), itemContainer->width(), height) && height >= minimumSize.height()) {
-                itemContainer->setHeight(qMax(height, minimumSize.height()));
-            } else {
-                m_shouldResizeHeight = false;
-                emit resizeBlockedChanged();
-            }
-        }
+    // Vertical Resize
+    if (resizeTop()) {
+        const qreal height = qMax(minimumSize.height(), m_mouseDownGeometry.height() + difference.y());
+        const qreal y = m_mouseDownGeometry.y() + (m_mouseDownGeometry.height() - height);
 
-    } else {
-        m_shouldResizeHeight = event->pos().y() >= height()/3 && event->pos().y() <= height()/3 * 2;
-        emit resizeBlockedChanged();
+        // -1 to have a bit of margins around
+        if (layout->isRectAvailable(m_mouseDownGeometry.x(), y - 1, m_mouseDownGeometry.width(), m_mouseDownGeometry.height())) {
+            itemContainer->setY(y);
+            itemContainer->setHeight(height);
+            setResizeBlocked(m_resizeWidthBlocked,
+                             m_mouseDownGeometry.height() + difference.y() < minimumSize.height());
+        } else {
+            setResizeBlocked(m_resizeWidthBlocked, true);
+        }
+    } else if (resizeBottom()) {
+        const qreal height = qMax(minimumSize.height(), m_mouseDownGeometry.height() - difference.y());
+
+        if (layout->isRectAvailable(m_mouseDownGeometry.x(), m_mouseDownGeometry.y(), m_mouseDownGeometry.width(), height)) {
+            itemContainer->setHeight(qMax(height, minimumSize.height()));
+            setResizeBlocked(m_resizeWidthBlocked,
+                             m_mouseDownGeometry.height() - difference.y() < minimumSize.height());
+        } else {
+            setResizeBlocked(m_resizeWidthBlocked, true);
+        }
     }
 
-    m_lastMousePosition = event->windowPos();
     event->accept();
 }
 
@@ -217,8 +227,7 @@ void ResizeHandle::mouseReleaseEvent(QMouseEvent *event)
 
     event->accept();
 
-    m_shouldResizeWidth = true;
-    m_shouldResizeHeight = true;
+    setResizeBlocked(false, false);
     emit resizeBlockedChanged();
 }
 

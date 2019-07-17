@@ -64,12 +64,14 @@ private:
     inline bool resizeTop() const;
     inline bool resizeRight() const;
     inline bool resizeBottom() const;
+    void setResizeBlocked(bool width, bool height);
 
+    QPointF m_mouseDownPosition;
+    QRectF m_mouseDownGeometry;
 
-    QPointF m_lastMousePosition;
     QPointer<ConfigOverlay> m_configOverlay;
     Corner m_resizeCorner = Left;
-    bool m_shouldResizeWidth = true;
-    bool m_shouldResizeHeight = true;
+    bool m_resizeWidthBlocked = false;
+    bool m_resizeHeightBlocked = false;
 };
 
