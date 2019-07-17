@@ -29,7 +29,7 @@ ContainmentLayoutManager.ResizeHandle {
     width: overlay.touchInteraction ? units.gridUnit * 2 : units.gridUnit
     height: width
     Rectangle {
-        color: theme.backgroundColor
+        color: resizeBlocked ? theme.negativeTextColor : theme.backgroundColor
         anchors.fill: parent
         radius: width
         opacity: 0.6

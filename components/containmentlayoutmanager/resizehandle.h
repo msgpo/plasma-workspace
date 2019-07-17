@@ -28,6 +28,7 @@ class ResizeHandle: public QQuickItem
 {
     Q_OBJECT
     Q_PROPERTY(Corner resizeCorner MEMBER m_resizeCorner NOTIFY resizeCornerChanged)
+    Q_PROPERTY(bool resizeBlocked READ resizeBlocked NOTIFY resizeBlockedChanged)
 
 public:
     enum Corner {
@@ -45,6 +46,7 @@ public:
     ResizeHandle(QQuickItem *parent = nullptr);
     ~ResizeHandle();
 
+    bool resizeBlocked() const;
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -53,6 +55,7 @@ protected:
 
 Q_SIGNALS:
     void resizeCornerChanged();
+    void resizeBlockedChanged();
 
 private:
     void setConfigOverlay(ConfigOverlay *configOverlay);
@@ -66,7 +69,7 @@ private:
     QPointF m_lastMousePosition;
     QPointer<ConfigOverlay> m_configOverlay;
     Corner m_resizeCorner = Left;
-    bool m_shouldResizeWidth = false;
-    bool m_shouldResizeHeight = false;
+    bool m_shouldResizeWidth = true;
+    bool m_shouldResizeHeight = true;
 };
 
