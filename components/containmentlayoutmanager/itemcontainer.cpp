@@ -39,7 +39,8 @@ ItemContainer::ItemContainer(QQuickItem *parent)
     setActiveFocusOnTab(true);
     setAcceptedMouseButtons(Qt::LeftButton);
 
-    m_layout = qobject_cast<AppletsLayout *>(parent);
+    setLayout(qobject_cast<AppletsLayout *>(parent));
+
     m_editModeTimer = new QTimer(this);
     m_editModeTimer->setSingleShot(true);
 
@@ -100,6 +101,10 @@ void ItemContainer::setEditMode(bool editMode)
         return;
     }
 
+    if (editMode && editModeCondition() == Locked) {
+        return;
+    }
+
     m_editMode = editMode;
 
     // Leave this decision to QML?
@@ -125,6 +130,10 @@ void ItemContainer::setEditMode(bool editMode)
 
 ItemContainer::EditModeCondition ItemContainer::editModeCondition() const
 {
+    if (m_layout->editModeCondition() == AppletsLayout::Locked) {
+        return Locked;
+    }
+
     return m_editModeCondition;
 }
 
@@ -132,6 +141,10 @@ void ItemContainer::setEditModeCondition(EditModeCondition condition)
 {
     if (condition == m_editModeCondition) {
         return;
+    }
+
+    if (condition == Locked) {
+        setEditMode(false);
     }
 
     m_editModeCondition = condition;
@@ -167,6 +180,16 @@ void ItemContainer::setLayout(AppletsLayout *layout)
     if (parentItem() != layout) {
         setParentItem(layout);
     }
+
+    connect(m_layout, &AppletsLayout::editModeConditionChanged, this, [this]() {
+        if (m_layout->editModeCondition() == AppletsLayout::Locked) {
+            setEditMode(false);
+        }
+        if ((m_layout->editModeCondition() == AppletsLayout::Locked) !=
+            (m_editModeCondition == ItemContainer::Locked)) {
+            emit editModeConditionChanged();
+        }
+    });
     emit layoutChanged();
 }
 

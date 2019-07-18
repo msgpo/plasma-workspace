@@ -296,6 +296,26 @@ void AppletsLayout::setAppletContainerComponent(QQmlComponent *component)
     emit appletContainerComponentChanged();
 }
 
+AppletsLayout::EditModeCondition AppletsLayout::editModeCondition() const
+{
+    return m_editModeCondition;
+}
+
+void AppletsLayout::setEditModeCondition(AppletsLayout::EditModeCondition condition)
+{
+    if (m_editModeCondition == condition) {
+        return;
+    }
+
+    if (m_editModeCondition == Locked) {
+        setEditMode(false);
+    }
+
+    m_editModeCondition = condition;
+
+    emit editModeConditionChanged();
+}
+
 bool AppletsLayout::editMode() const
 {
     return m_editMode;

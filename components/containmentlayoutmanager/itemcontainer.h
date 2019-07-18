@@ -74,6 +74,7 @@ class ItemContainer: public QQuickItem
 
 public:
     enum EditModeCondition {
+        Locked = AppletsLayout::EditModeCondition::Locked,
         Manual = AppletsLayout::EditModeCondition::Manual,
         AfterPressAndHold = AppletsLayout::EditModeCondition::AfterPressAndHold,
         AfterPress,

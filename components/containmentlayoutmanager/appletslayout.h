@@ -65,7 +65,7 @@ class AppletsLayout: public QQuickItem
 
     Q_PROPERTY(ItemContainer *placeHolder READ placeHolder WRITE setPlaceHolder NOTIFY placeHolderChanged);
 
-    Q_PROPERTY(AppletsLayout::EditModeCondition editModeCondition MEMBER m_editModeCondition NOTIFY editModeConditionChanged)
+    Q_PROPERTY(AppletsLayout::EditModeCondition editModeCondition READ editModeCondition WRITE setEditModeCondition NOTIFY editModeConditionChanged)
     Q_PROPERTY(bool editMode READ editMode WRITE setEditMode NOTIFY editModeChanged)
 
 public:
@@ -79,7 +79,8 @@ public:
     Q_ENUM(PreferredLayoutDirection)
 
     enum EditModeCondition {
-        Manual = 0,
+        Locked = 0,
+        Manual,
         AfterPressAndHold,
     };
     Q_ENUM(EditModeCondition)
@@ -120,6 +121,9 @@ public:
 
     ItemContainer *placeHolder() const;
     void setPlaceHolder(ItemContainer *placeHolder);
+
+    EditModeCondition editModeCondition() const;
+    void setEditModeCondition(EditModeCondition condition);
 
     bool editMode() const;
     void setEditMode(bool edit);
