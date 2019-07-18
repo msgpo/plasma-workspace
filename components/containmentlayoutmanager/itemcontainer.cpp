@@ -382,8 +382,6 @@ void ItemContainer::componentComplete()
         QQuickItem *item = qobject_cast<QQuickItem *>(o);
         if (item) {
             item->setParentItem(m_contentItem);
-        } else {
-            o->setParent(this);
         }
     }
 
