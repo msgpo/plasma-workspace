@@ -33,6 +33,8 @@ namespace PlasmaQuick {
 class AppletContainer: public ItemContainer
 {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
+
     Q_PROPERTY(PlasmaQuick::AppletQuickItem *applet READ applet NOTIFY appletChanged)
 
     Q_PROPERTY(QQmlComponent *busyIndicatorComponent READ busyIndicatorComponent WRITE setBusyIndicatorComponent NOTIFY busyIndicatorComponentChanged)
@@ -46,11 +48,16 @@ public:
     QQmlComponent *busyIndicatorComponent() const;
     void setBusyIndicatorComponent(QQmlComponent *comp);
 
+protected:
+    void componentComplete() override;
+
 Q_SIGNALS:
     void appletChanged();
     void busyIndicatorComponentChanged();
 
 private:
+    void connectBusyIndicator();
+
     QPointer<PlasmaQuick::AppletQuickItem> m_appletItem;
     QPointer<QQmlComponent> m_busyIndicatorComponent;
     QQuickItem *m_busyIndicatorItem = nullptr;

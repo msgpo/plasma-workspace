@@ -35,31 +35,7 @@ AppletContainer::AppletContainer(QQuickItem *parent)
         }
         m_appletItem = qobject_cast<PlasmaQuick::AppletQuickItem *>(contentItem());
 
-        if (m_appletItem) {
-            Q_ASSERT(m_appletItem->applet());
-            connect(m_appletItem->applet(), &Plasma::Applet::busyChanged, this, [this] () {
-                if (!m_busyIndicatorComponent || !m_appletItem->applet()->isBusy() || m_busyIndicatorItem) {
-                    return;
-                }
-
-                QQmlContext *context = QQmlEngine::contextForObject(this);
-                Q_ASSERT(context);
-                QObject *instance = m_busyIndicatorComponent->beginCreate(context);
-                m_busyIndicatorItem = qobject_cast<QQuickItem *>(instance);
-
-                if (!m_busyIndicatorItem) {
-                    qWarning() << "Error: busyIndicatorComponent not of Item type";
-                    if (instance) {
-                        instance->deleteLater();
-                    }
-                    return;
-                }
-
-                m_busyIndicatorItem->setParentItem(this);
-                m_busyIndicatorItem->setZ(999);
-                m_busyIndicatorComponent->completeCreate();
-            });
-        }
+        connectBusyIndicator();
 
         emit appletChanged();
     });
@@ -67,6 +43,12 @@ AppletContainer::AppletContainer(QQuickItem *parent)
 
 AppletContainer::~AppletContainer()
 {
+}
+
+void AppletContainer::componentComplete()
+{
+    connectBusyIndicator();
+    ItemContainer::componentComplete();
 }
 
 PlasmaQuick::AppletQuickItem *AppletContainer::applet()
@@ -93,6 +75,35 @@ void AppletContainer::setBusyIndicatorComponent(QQmlComponent *component)
     }
 
     emit busyIndicatorComponentChanged();
+}
+
+void AppletContainer::connectBusyIndicator()
+{
+    if (m_appletItem && !m_busyIndicatorItem) {
+        Q_ASSERT(m_appletItem->applet());
+        connect(m_appletItem->applet(), &Plasma::Applet::busyChanged, this, [this] () {
+            if (!m_busyIndicatorComponent || !m_appletItem->applet()->isBusy() || m_busyIndicatorItem) {
+                return;
+            }
+
+            QQmlContext *context = QQmlEngine::contextForObject(this);
+            Q_ASSERT(context);
+            QObject *instance = m_busyIndicatorComponent->beginCreate(context);
+            m_busyIndicatorItem = qobject_cast<QQuickItem *>(instance);
+
+            if (!m_busyIndicatorItem) {
+                qWarning() << "Error: busyIndicatorComponent not of Item type";
+                if (instance) {
+                    instance->deleteLater();
+                }
+                return;
+            }
+
+            m_busyIndicatorItem->setParentItem(this);
+            m_busyIndicatorItem->setZ(999);
+            m_busyIndicatorComponent->completeCreate();
+        });
+    }
 }
 
 #include "moc_appletcontainer.cpp"
