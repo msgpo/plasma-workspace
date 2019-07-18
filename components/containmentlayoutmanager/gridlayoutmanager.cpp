@@ -225,6 +225,12 @@ bool GridLayoutManager::assignSpaceImpl(ItemContainer *item)
         }
     }
 
+    if (item->layoutAttached()) {
+        connect(item, &ItemContainer::sizeHintsChanged, this, [this, item]() {
+            adjustToItemSizeHints(item);
+        });
+    }
+
     return true;
 }
 
@@ -241,6 +247,8 @@ void GridLayoutManager::releaseSpaceImpl(ItemContainer *item)
     }
 
     m_pointsForItem.erase(it);
+
+    disconnect(item, &ItemContainer::sizeHintsChanged, this, nullptr);
 }
 
 int GridLayoutManager::rows() const
@@ -251,6 +259,60 @@ int GridLayoutManager::rows() const
 int GridLayoutManager::columns() const
 {
     return layout()->width() / cellSize().width();
+}
+
+void GridLayoutManager::adjustToItemSizeHints(ItemContainer *item)
+{
+    if (!item->layoutAttached() || item->editMode()) {
+        return;
+    }
+
+    bool changed = false;
+
+    // Minimum
+    const qreal newMinimumHeight = item->layoutAttached()->property("minimumHeight").toReal();
+    const qreal newMinimumWidth = item->layoutAttached()->property("minimumWidth").toReal();
+
+    if (newMinimumHeight > item->height()) {
+        item->setHeight(newMinimumHeight);
+        changed = true;
+    }
+    if (newMinimumWidth > item->width()) {
+        item->setWidth(newMinimumWidth);
+        changed = true;
+    }
+
+    // Preferred
+    const qreal newPreferredHeight = item->layoutAttached()->property("preferredHeight").toReal();
+    const qreal newPreferredWidth = item->layoutAttached()->property("preferredWidth").toReal();
+
+    if (newPreferredHeight > item->height()) {
+        item->setHeight(layout()->cellHeight() * ceil(newPreferredHeight / layout()->cellHeight()));
+        changed = true;
+    }
+    if (newPreferredWidth > item->width()) {
+        item->setWidth(layout()->cellWidth() * ceil(newPreferredWidth / layout()->cellWidth()));
+        changed = true;
+    }
+
+    /*// Maximum : IGNORE?
+    const qreal newMaximumHeight = item->layoutAttached()->property("preferredHeight").toReal();
+    const qreal newMaximumWidth = item->layoutAttached()->property("preferredWidth").toReal();
+
+    if (newMaximumHeight > 0 && newMaximumHeight < height()) {
+        item->setHeight(newMaximumHeight);
+        changed = true;
+    }
+    if (newMaximumHeight > 0 && newMaximumWidth < width()) {
+        item->setWidth(newMaximumWidth);
+        changed = true;
+    }*/
+
+    // Relayout if anything changed
+    if (changed && itemIsManaged(item)) {
+        releaseSpace(item);
+        positionItem(item);
+    }
 }
 
 QRect GridLayoutManager::cellBasedGeometry(const QRectF &geom) const

@@ -164,6 +164,11 @@ Q_SIGNALS:
      */
     void userDrag(const QPointF &newPosition, const QPointF &dragCenter);
 
+    /**
+     * The attached layout object changed some of its size hints
+     */
+    void sizeHintsChanged();
+
     //QML property notifiers
     void layoutChanged();
     void keyChanged();
@@ -188,7 +193,6 @@ Q_SIGNALS:
 private:
     void syncChildItemsGeometry(const QSizeF &size);
     void sendUngrabRecursive(QQuickItem *item);
-    void adjustSizeHints();
 
     //internal accessorts for the contentData QProperty
     static void contentData_append(QQmlListProperty<QObject> *prop, QObject *object);

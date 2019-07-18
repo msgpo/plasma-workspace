@@ -57,7 +57,7 @@ ItemContainer::ItemContainer(QQuickItem *parent)
     m_sizeHintAdjustTimer->setSingleShot(true);
     m_sizeHintAdjustTimer->setInterval(0);
 
-    connect(m_sizeHintAdjustTimer, &QTimer::timeout, this, &ItemContainer::adjustSizeHints);
+    connect(m_sizeHintAdjustTimer, &QTimer::timeout, this, &ItemContainer::sizeHintsChanged);
 
     // Lose edit mode when going out of focus
     connect(this, &QQuickItem::focusChanged, this, [this]() {
@@ -404,8 +404,6 @@ void ItemContainer::componentComplete()
 
         connect(m_layoutAttached, SIGNAL(maximumHeightChanged()), m_sizeHintAdjustTimer, SLOT(start()));
         connect(m_layoutAttached, SIGNAL(maximumWidthChanged()), m_sizeHintAdjustTimer, SLOT(start()));
-
-        adjustSizeHints();
     }
     QQuickItem::componentComplete();
 }
@@ -423,60 +421,6 @@ void ItemContainer::sendUngrabRecursive(QQuickItem *item)
     QEvent ev(QEvent::UngrabMouse);
 
     item->window()->sendEvent(item, &ev);
-}
-
-void ItemContainer::adjustSizeHints()
-{
-    if (!layoutAttached() || m_editMode) {
-        return;
-    }
-
-    bool changed = false;
-
-    // Minimum
-    const qreal newMinimumHeight = layoutAttached()->property("minimumHeight").toReal();
-    const qreal newMinimumWidth = layoutAttached()->property("minimumWidth").toReal();
-
-    if (newMinimumHeight > height()) {
-        setHeight(newMinimumHeight);
-        changed = true;
-    }
-    if (newMinimumWidth > width()) {
-        setWidth(newMinimumWidth);
-        changed = true;
-    }
-
-    // Preferred
-    const qreal newPreferredHeight = layoutAttached()->property("preferredHeight").toReal();
-    const qreal newPreferredWidth = layoutAttached()->property("preferredWidth").toReal();
-
-    if (newPreferredHeight > height()) {
-        setHeight(layout()->cellHeight() * ceil(newPreferredHeight / layout()->cellHeight()));
-        changed = true;
-    }
-    if (newPreferredWidth > width()) {
-        setWidth(layout()->cellWidth() * ceil(newPreferredWidth / layout()->cellWidth()));
-        changed = true;
-    }
-
-    /*// Maximum : IGNORE?
-    const qreal newMaximumHeight = layoutAttached()->property("preferredHeight").toReal();
-    const qreal newMaximumWidth = layoutAttached()->property("preferredWidth").toReal();
-
-    if (newMaximumHeight > 0 && newMaximumHeight < height()) {
-        setHeight(newMaximumHeight);
-        changed = true;
-    }
-    if (newMaximumHeight > 0 && newMaximumWidth < width()) {
-        setWidth(newMaximumWidth);
-        changed = true;
-    }*/
-
-    // Relayout if anything changed
-    if (changed && layout()->itemIsManaged(this)) {
-        layout()->releaseSpace(this);
-        layout()->positionItem(this);
-    }
 }
 
 bool ItemContainer::childMouseEventFilter(QQuickItem *item, QEvent *event)
@@ -686,7 +630,6 @@ void ItemContainer::setContentItem(QQuickItem *item)
     m_contentItem->setSize(QSizeF(width() - m_leftPadding - m_rightPadding,
             height() - m_topPadding - m_bottomPadding));
 
-    adjustSizeHints();
     emit contentItemChanged();
 }
 

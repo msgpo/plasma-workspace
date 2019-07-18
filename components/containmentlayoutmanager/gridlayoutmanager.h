@@ -97,6 +97,10 @@ private:
     // How many cells are available in the row starting from the given cell and direction
     int freeSpaceInDirection(const QPair<int, int> &cell, AppletsLayout::PreferredLayoutDirection direction) const;
 
+    /**
+     * This reacts to changes in size hints by an item
+     */
+    void adjustToItemSizeHints(ItemContainer *item);
 
     // What is the item that occupies the point. The point is expressed in cells rather than pixels. a qpair rather a QPointF as QHash doesn't support indicization by QPointF
     QHash <QPair<int, int>, ItemContainer *> m_grid;
