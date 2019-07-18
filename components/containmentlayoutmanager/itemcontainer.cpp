@@ -289,8 +289,9 @@ void ItemContainer::setConfigOverlayVisible(bool visible)
         }
 
         m_configOverlay->setVisible(false);
-        m_configOverlay->setTouchInteraction(m_mouseSynthetizedFromTouch);
+        m_configOverlay->setItemContainer(this);
         m_configOverlay->setParentItem(this);
+        m_configOverlay->setTouchInteraction(m_mouseSynthetizedFromTouch);
         m_configOverlay->setZ(999);
         m_configOverlay->setPosition(QPointF(0, 0));
         m_configOverlay->setSize(size());

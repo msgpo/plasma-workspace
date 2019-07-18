@@ -41,6 +41,8 @@ public:
     ~ConfigOverlay();
 
     ItemContainer *itemContainer() const;
+    // NOTE: setter not accessible from QML by purpose
+    void setItemContainer(ItemContainer *container);
 
     bool open() const;
     void setOpen(bool open);
@@ -64,8 +66,6 @@ Q_SIGNALS:
     void touchInteractionChanged();
 
 private:
-    void setItemContainer(ItemContainer *container);
-
     QPointer<ItemContainer> m_itemContainer;
     qreal m_leftAvailableSpace = 0;
     qreal m_topAvailableSpace = 0;

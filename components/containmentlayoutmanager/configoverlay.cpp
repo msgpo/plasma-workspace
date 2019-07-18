@@ -25,11 +25,6 @@
 ConfigOverlay::ConfigOverlay(QQuickItem *parent)
     : QQuickItem(parent)
 {
-    setItemContainer(qobject_cast<ItemContainer *>(parent));
-    connect(this, &QQuickItem::parentChanged, this, [this]() {
-        setItemContainer(qobject_cast<ItemContainer *>(parentItem()));
-    });
-
     m_hideTimer = new QTimer(this);
     m_hideTimer->setSingleShot(true);
     m_hideTimer->setInterval(600);
