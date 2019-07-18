@@ -23,9 +23,6 @@ import org.kde.plasma.private.containmentlayoutmanager 1.0 as ContainmentLayoutM
 
 
 ContainmentLayoutManager.ResizeHandle {
-    resizeCorner: ContainmentLayoutManager.ResizeHandle2.Right
-
-    //TODO: anchors
     width: overlay.touchInteraction ? units.gridUnit * 2 : units.gridUnit
     height: width
     Rectangle {

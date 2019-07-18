@@ -355,9 +355,8 @@ void ItemContainer::componentComplete()
         syncChildItemsGeometry(size());
     }
 
-    QQuickItem *item;
     for (auto *o : m_contentData) {
-        item = qobject_cast<QQuickItem *>(o);
+        QQuickItem *item = qobject_cast<QQuickItem *>(o);
         if (item) {
             item->setParentItem(m_contentItem);
         } else {
@@ -367,11 +366,13 @@ void ItemContainer::componentComplete()
 
     // Search for the Layout attached property
     // Qt6: this should become public api
+    // https://bugreports.qt.io/browse/QTBUG-77103
     for (auto *o : children()) {
         if (o->inherits("QQuickLayoutAttached")) {
             m_layoutAttached = o;
         }
     }
+
     if (m_layoutAttached) {
         //NOTE: new syntax cannot be used because we don't have access to the QQuickLayoutAttached class
         connect(m_layoutAttached, SIGNAL(minimumHeightChanged()), m_sizeHintAdjustTimer, SLOT(start()));
