@@ -163,9 +163,12 @@ bool GridLayoutManager::restoreItem(ItemContainer *item)
         item->setRotation(it.value().rotation);
 
         // NOTE: do not use positionItemAndAssign here, because we do not want to emit layoutNeedsSaving, to not save after resize
-        releaseSpaceImpl(item);
-        positionItem(item);
-        assignSpaceImpl(item);
+        // If size is empty the layout is not in a valid state and probably startup is not completed yet
+        if (!layout()->size().isEmpty()) {
+            releaseSpaceImpl(item);
+            positionItem(item);
+            assignSpaceImpl(item);
+        }
 
         return true;
     }
@@ -197,7 +200,7 @@ bool GridLayoutManager::assignSpaceImpl(ItemContainer *item)
     // Don't emit extra layoutneedssaving signals
     releaseSpaceImpl(item);
     if (!isRectAvailable(itemGeometry(item))) {
-        qWarning()<<"Trying to take space not available"<<item;
+        qWarning()<<"Trying to take space not available" << item;
         return false;
     }
 
