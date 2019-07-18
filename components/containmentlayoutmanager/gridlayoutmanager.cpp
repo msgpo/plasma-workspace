@@ -158,10 +158,8 @@ bool GridLayoutManager::restoreItem(ItemContainer *item)
 
     if (it != m_parsedConfig.end()) {
         // Actual restore
-        item->setX(it.value().x);
-        item->setY(it.value().y);
-        item->setWidth(it.value().width);
-        item->setHeight(it.value().height);
+        item->setPosition(QPointF(it.value().x, it.value().y));
+        item->setSize(QSizeF(it.value().width, it.value().height));
         item->setRotation(it.value().rotation);
 
         // NOTE: do not use positionItemAndAssign here, because we do not want to emit layoutNeedsSaving, to not save after resize

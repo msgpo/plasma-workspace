@@ -62,8 +62,8 @@ QRectF AbstractLayoutManager::candidateGeometry(ItemContainer *item) const
     //TODO: a default minimum size
     QSizeF minimumSize = QSize(m_layout->minimumItemWidth(), m_layout->minimumItemHeight());
     if (item->layoutAttached()) {
-        minimumSize.setWidth(qMax(minimumSize.width(), item->layoutAttached()->property("minimumWidth").toReal()));
-        minimumSize.setHeight(qMax(minimumSize.height(), item->layoutAttached()->property("minimumHeight").toReal()));
+        minimumSize = QSizeF(qMax(minimumSize.width(), item->layoutAttached()->property("minimumWidth").toReal()),
+                            qMax(minimumSize.height(), item->layoutAttached()->property("minimumHeight").toReal()));
     }
 
     const QRectF ltrRect = nextAvailableSpace(item, minimumSize, AppletsLayout::LeftToRight);
@@ -100,17 +100,15 @@ QRectF AbstractLayoutManager::candidateGeometry(ItemContainer *item) const
 
 void AbstractLayoutManager::positionItem(ItemContainer *item)
 {
-    // Give it a sane size if uninitialized
+    // Give it a sane size if uninitialized: this may change size hints
     if (item->width() <= 0 || item->height() <= 0) {
-        item->setWidth(qMax(m_layout->minimumItemWidth(), m_layout->defaultItemWidth()));
-        item->setHeight(qMax(m_layout->minimumItemHeight(), m_layout->defaultItemHeight()));
+        item->setSize(QSizeF(qMax(m_layout->minimumItemWidth(), m_layout->defaultItemWidth()),
+                      qMax(m_layout->minimumItemHeight(), m_layout->defaultItemHeight())));
     }
 
     QRectF candidate = candidateGeometry(item);
-    item->setX(candidate.x());
-    item->setY(candidate.y());
-    item->setWidth(candidate.width());
-    item->setHeight(candidate.height());
+    item->setPosition(candidate.topLeft());
+    item->setSize(candidate.size());
 }
 
 void AbstractLayoutManager::positionItemAndAssign(ItemContainer *item)

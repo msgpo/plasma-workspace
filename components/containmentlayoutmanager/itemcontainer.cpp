@@ -178,24 +178,20 @@ AppletsLayout *ItemContainer::layout() const
 void ItemContainer::syncChildItemsGeometry(const QSizeF &size)
 {
     if (m_contentItem) {
-        m_contentItem->setX(m_leftPadding);
-        m_contentItem->setY(m_topPadding);
+        m_contentItem->setPosition(QPointF(m_leftPadding, m_topPadding));
 
         m_contentItem->setSize(QSizeF(size.width() - m_leftPadding - m_rightPadding,
                 size.height() - m_topPadding - m_bottomPadding));
     }
 
     if (m_backgroundItem) {
-        m_backgroundItem->setX(0);
-        m_backgroundItem->setY(0);
+        m_backgroundItem->setPosition(QPointF(0, 0));
         m_backgroundItem->setSize(size);
     }
 
     if (m_configOverlay) {
-        m_configOverlay->setX(0);
-        m_configOverlay->setY(0);
-        m_configOverlay->setWidth(size.width());
-        m_configOverlay->setHeight(size.height());
+        m_configOverlay->setPosition(QPointF(0, 0));
+        m_configOverlay->setSize(size);
     }
 }
 
@@ -273,10 +269,8 @@ void ItemContainer::setConfigOverlayVisible(bool visible)
         m_configOverlay->setTouchInteraction(m_mouseSynthetizedFromTouch);
         m_configOverlay->setParentItem(this);
         m_configOverlay->setZ(999);
-        m_configOverlay->setX(0);
-        m_configOverlay->setY(0);
-        m_configOverlay->setWidth(width());
-        m_configOverlay->setHeight(height());
+        m_configOverlay->setPosition(QPointF(0, 0));
+        m_configOverlay->setSize(size());
 
         m_configOverlayComponent->completeCreate();
 
@@ -594,8 +588,8 @@ void ItemContainer::mouseMoveEvent(QMouseEvent *event)
         grabMouse();
 
     } else {
-        setX(x() + event->windowPos().x() - m_lastMousePosition.x());
-        setY(y() + event->windowPos().y() - m_lastMousePosition.y());
+        setPosition(QPointF(x() + event->windowPos().x() - m_lastMousePosition.x(),
+                            y() + event->windowPos().y() - m_lastMousePosition.y()));
 
         m_layout->showPlaceHolderForItem(this);
         
@@ -665,8 +659,7 @@ void ItemContainer::setContentItem(QQuickItem *item)
 
     m_contentItem = item;
     item->setParentItem(this);
-    m_contentItem->setX(m_leftPadding);
-    m_contentItem->setY(m_topPadding);
+    m_contentItem->setPosition(QPointF(m_leftPadding, m_topPadding));
 
     m_contentItem->setSize(QSizeF(width() - m_leftPadding - m_rightPadding,
             height() - m_topPadding - m_bottomPadding));
@@ -688,8 +681,7 @@ void ItemContainer::setBackground(QQuickItem *item)
 
     m_backgroundItem = item;
     m_backgroundItem->setParentItem(this);
-    m_backgroundItem->setX(0);
-    m_backgroundItem->setY(0);
+    m_backgroundItem->setPosition(QPointF(0, 0));
     m_backgroundItem->setSize(size());
 
     emit backgroundChanged();

@@ -342,10 +342,8 @@ void AppletsLayout::showPlaceHolderAt(const QRectF &geom)
         return;
     }
 
-    m_placeHolder->setX(geom.x());
-    m_placeHolder->setY(geom.y());
-    m_placeHolder->setWidth(geom.width());
-    m_placeHolder->setHeight(geom.height());
+    m_placeHolder->setPosition(geom.topLeft());
+    m_placeHolder->setSize(geom.size());
 
     m_layoutManager->positionItem(m_placeHolder);
 
@@ -358,10 +356,8 @@ void AppletsLayout::showPlaceHolderForItem(QQuickItem *item)
         return;
     }
 
-    m_placeHolder->setX(item->x());
-    m_placeHolder->setY(item->y());
-    m_placeHolder->setWidth(item->width());
-    m_placeHolder->setHeight(item->height());
+    m_placeHolder->setPosition(item->position());
+    m_placeHolder->setSize(item->size());
 
     m_layoutManager->positionItem(m_placeHolder);
 
@@ -548,8 +544,7 @@ void AppletsLayout::appletAdded(QObject *applet, int x, int y)
     }
 
     AppletContainer *container = createContainerForApplet(appletItem);
-    container->setX(x);
-    container->setY(y);
+    container->setPosition(QPointF(x, y));
     container->setVisible(true);
 
     m_layoutManager->positionItemAndAssign(container);
@@ -617,12 +612,12 @@ AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuic
     const bool geometryWasSaved = m_layoutManager->restoreItem(container);
 
     if (!geometryWasSaved) {
-        container->setX(appletItem->x() - container->leftPadding());
-        container->setY(appletItem->y() - container->topPadding());
+        container->setPosition(QPointF(appletItem->x() - container->leftPadding(),
+                                       appletItem->y() - container->topPadding()));
 
         if (!appletSize.isEmpty()) {
-            container->setWidth(qMax(m_minimumItemSize.width(), appletSize.width() + container->leftPadding() + container->rightPadding()));
-            container->setHeight(qMax(m_minimumItemSize.height(), appletSize.height() + container->topPadding() + container->bottomPadding()));
+            container->setSize(QSizeF(qMax(m_minimumItemSize.width(), appletSize.width() + container->leftPadding() + container->rightPadding()),
+                                      qMax(m_minimumItemSize.height(), appletSize.height() + container->topPadding() + container->bottomPadding())));
         }
     }
 
@@ -635,11 +630,10 @@ AppletContainer *AppletsLayout::createContainerForApplet(PlasmaQuick::AppletQuic
         if (container->initialSize().width() > m_minimumItemSize.width() &&
             container->initialSize().height() > m_minimumItemSize.height()) {
             const QSizeF size = m_layoutManager->cellAlignedContainingSize( container->initialSize());
-            container->setWidth(size.width());
-            container->setHeight(size.height());
+            container->setSize(size);
         } else {
-            container->setWidth(qMax(m_minimumItemSize.width(), m_defaultItemSize.width()));
-            container->setHeight(qMax(m_minimumItemSize.height(), m_defaultItemSize.height()));
+            container->setSize(QSizeF(qMax(m_minimumItemSize.width(), m_defaultItemSize.width()),
+                                       qMax(m_minimumItemSize.height(), m_defaultItemSize.height())));
         }
     }
 
