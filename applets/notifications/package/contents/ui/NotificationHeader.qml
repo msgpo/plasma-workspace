@@ -214,25 +214,6 @@ RowLayout {
                 source: "window-close"
                 roundToIconSize: false
                 active: closeButton.hovered
-
-                Charts.PieChart {
-                    anchors.fill: parent
-                    anchors.margins: -Math.round(units.devicePixelRatio)
-
-                    opacity: (notificationHeading.remainingTime > 0 && notificationHeading.remainingTime < notificationHeading.timeout) ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation { duration: units.longDuration }
-                    }
-
-                    range { from: 0; to: notificationHeading.timeout; automatic: false }
-
-                    valueSources: Charts.SingleValueSource { value: notificationHeading.timeout - notificationHeading.remainingTime }
-                    colorSource: Charts.SingleValueSource { value: "transparent" }
-
-                    backgroundColor: theme.highlightColor
-
-                    thickness: Math.round(units.devicePixelRatio) * 5
-                }
             }
         }
     }

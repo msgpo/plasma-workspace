@@ -153,10 +153,30 @@ PlasmaCore.Dialog {
                 }
             }
 
+            Rectangle {
+                id: timeoutIndicatorRect
+                anchors {
+                    right: parent.right
+                    rightMargin: -notificationPopup.margins.right
+                    bottom: parent.bottom
+                    bottomMargin: -notificationPopup.margins.bottom
+                }
+                width: units.devicePixelRatio * 3
+                color: theme.highlightColor
+                opacity: timeoutIndicatorAnimation.running ? 0.6 : 0
+                visible: units.longDuration > 1
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: units.longDuration
+                    }
+                }
+            }
+
             NumberAnimation {
-                target: notificationItem
-                property: "remainingTime"
-                from: timer.interval
+                id: timeoutIndicatorAnimation
+                target: timeoutIndicatorRect
+                property: "height"
+                from: area.height + notificationPopup.margins.top + notificationPopup.margins.bottom
                 to: 0
                 duration: timer.interval
                 running: timer.running && units.longDuration > 1
