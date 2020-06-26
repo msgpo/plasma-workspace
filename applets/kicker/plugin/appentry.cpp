@@ -28,6 +28,7 @@
 #include <QProcess>
 #include <QQmlPropertyMap>
 #include <QStandardPaths>
+#include <QFileInfo>
 #if HAVE_X11
 #include <QX11Info>
 #endif
@@ -35,8 +36,10 @@
 #include <KActivities/ResourceInstance>
 #include <KConfigGroup>
 #include <KJob>
+#include <KIO/ApplicationLauncherJob>
 #include <KLocalizedString>
 #include <KMimeTypeTrader>
+#include <KNotificationJobUiDelegate>
 #include <KRun>
 #include <KSycoca>
 #include <KShell>
@@ -89,7 +92,11 @@ bool AppEntry::isValid() const
 QIcon AppEntry::icon() const
 {
     if (m_icon.isNull()) {
-        m_icon = QIcon::fromTheme(m_service->icon(), QIcon::fromTheme(QStringLiteral("unknown")));
+        if (QFileInfo::exists(m_service->icon())) {
+            m_icon = QIcon(m_service->icon());
+        } else {
+            m_icon = QIcon::fromTheme(m_service->icon(), QIcon::fromTheme(QStringLiteral("unknown")));
+        }
     }
     return m_icon;
 }
@@ -203,10 +210,14 @@ bool AppEntry::run(const QString& actionId, const QVariant &argument)
         }
 #endif
 
-        KRun::runApplication(*m_service, {}, nullptr, KRun::DeleteTemporaryFiles, {}, KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+        auto *job = new KIO::ApplicationLauncherJob(m_service);
+        job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
+        job->setRunFlags(KIO::ApplicationLauncherJob::DeleteTemporaryFiles);
+        job->setStartupId(KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+        job->start();
 
         KActivities::ResourceInstance::notifyAccessed(QUrl(QStringLiteral("applications:") + m_service->storageId()),
-            QStringLiteral("org.kde.plasma.kicker"));
+                QStringLiteral("org.kde.plasma.kicker"));
 
         return true;
     }

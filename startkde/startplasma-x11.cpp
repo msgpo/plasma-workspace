@@ -29,11 +29,13 @@ void sighupHandler(int)
     out << "GOT SIGHUP\n";
 }
 
-int main(int /*argc*/, char** /*argv*/)
+int main(int argc, char** argv)
 {
     // When the X server dies we get a HUP signal from xinit. We must ignore it
     // because we still need to do some cleanup.
     signal(SIGHUP, sighupHandler);
+
+    QCoreApplication app(argc, argv);
 
     // Boot sequence:
     //
@@ -99,10 +101,7 @@ int main(int /*argc*/, char** /*argv*/)
         return 1;
     }
 
-    if (!startKDEInit())
-        return 1;
-
-    if (!startKSMServer(false))
+    if (!startPlasmaSession(false))
         return 1;
 
     // Anything after here is logout

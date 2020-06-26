@@ -22,7 +22,7 @@ License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 #include "tasktools.h"
 
 #include <KDesktopFile>
-#include <KRun>
+#include <KNotificationJobUiDelegate>
 #include <KService>
 #include <KStartupInfo>
 #include <KSycoca>
@@ -30,6 +30,8 @@ License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <KActivities/Consumer>
 #include <KActivities/ResourceInstance>
+
+#include <KIO/ApplicationLauncherJob>
 
 #include <config-X11.h>
 
@@ -544,7 +546,7 @@ QStringList LauncherTasksModel::launcherActivities(const QUrl &_url) const
 int LauncherTasksModel::launcherPosition(const QUrl &url) const
 {
     for (int i = 0; i < d->launchersOrder.count(); ++i) {
-        if (launcherUrlsMatch(url, d->launchersOrder.at(i), IgnoreQueryItems)) {
+        if (launcherUrlsMatch(url, d->appData(d->launchersOrder.at(i)).url, IgnoreQueryItems)) {
             return i;
         }
     }
@@ -599,8 +601,11 @@ void LauncherTasksModel::requestOpenUrls(const QModelIndex &index, const QList<Q
         return;
     }
 
-    KRun::runApplication(*service, urls, nullptr, KRun::RunFlags(), QString(),
-                         KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+    auto *job = new KIO::ApplicationLauncherJob(service);
+    job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoErrorHandlingEnabled));
+    job->setUrls(urls);
+    job->setStartupId(KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+    job->start();
 
     KActivities::ResourceInstance::notifyAccessed(QUrl(QStringLiteral("applications:") + service->storageId()),
         QStringLiteral("org.kde.libtaskmanager"));

@@ -49,7 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <X11/extensions/Xrender.h>
 
 static const char version[] = "0.4";
-static const char description[] = I18N_NOOP( "The reliable KDE session manager that talks the standard X11R6 \nsession management protocol (XSMP)." );
+static const char description[] = I18N_NOOP( "The reliable Plasma session manager that talks the standard X11R6 \nsession management protocol (XSMP)." );
 
 Display* dpy = nullptr;
 Colormap colormap = 0;
@@ -213,9 +213,9 @@ void sanity_check( int argc, char* argv[] )
     {
         const QString msg_pre =
                 i18n("The following installation problem was detected\n"
-                     "while trying to start KDE:") +
+                     "while trying to start Plasma:") +
                 QStringLiteral("\n\n    ");
-        const QString msg_post = i18n("\n\nKDE is unable to start.\n");
+        const QString msg_post = i18n("\n\nPlasma is unable to start.\n");
         fputs(msg_pre.toUtf8().constData(), stderr);
         fprintf(stderr, "%s", msg.toUtf8().constData());
         fputs(msg_post.toUtf8().constData(), stderr);
@@ -227,7 +227,7 @@ void sanity_check( int argc, char* argv[] )
     }
 }
 
-extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
+int main(int argc, char* argv[])
 {
     sanity_check(argc, argv);
 
@@ -266,11 +266,6 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
                                      i18n("Restores the saved user session if available"));
     parser.addOption(restoreOption);
 
-    QCommandLineOption wmOption(QStringList() << QStringLiteral("w") << QStringLiteral("windowmanager"),
-                                i18n("Starts <wm> in case no other window manager is \nparticipating in the session. Default is 'kwin'"),
-                                i18n("wm"));
-    parser.addOption(wmOption);
-
     QCommandLineOption nolocalOption(QStringLiteral("nolocal"),
                                      i18n("Also allow remote connections"));
     parser.addOption(nolocalOption);
@@ -284,8 +279,6 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
     parser.addOption(noLockscreenOption);
 
     parser.process(*a);
-
-    QString wm = parser.value(wmOption);
 
     bool only_local = !parser.isSet(nolocalOption);
 #ifndef HAVE__ICETRANSNOLISTEN
@@ -310,7 +303,7 @@ extern "C" Q_DECL_EXPORT int kdemain( int argc, char* argv[] )
         flags |= KSMServer::InitFlag::NoLockScreen;
     }
 
-    KSMServer *server = new KSMServer( wm, flags);
+    KSMServer *server = new KSMServer(flags);
 
     // for the KDE-already-running check in startkde
     KSelectionOwner kde_running( "_KDE_RUNNING", 0 );

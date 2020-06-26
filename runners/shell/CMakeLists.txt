@@ -1,20 +1,16 @@
 add_definitions(-DTRANSLATION_DOMAIN=\"plasma_runner_shell\")
 
-set(krunner_shell_SRCS
-    shellrunner.cpp
-    shell_config.cpp
-)
+set(krunner_shell_SRCS shellrunner.cpp)
 
-ki18n_wrap_ui(krunner_shell_SRCS shellOptions.ui)
 add_library(krunner_shell MODULE ${krunner_shell_SRCS})
 target_link_libraries(krunner_shell
     KF5::KIOCore
-    KF5::KIOWidgets
+    KF5::KIOGui
     KF5::I18n
+    KF5::Notifications
     KF5::Plasma
     KF5::Runner
     KF5::Completion
-    Qt5::Widgets
 )
 
 install(TARGETS krunner_shell DESTINATION ${KDE_INSTALL_PLUGINDIR})

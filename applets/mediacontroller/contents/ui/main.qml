@@ -1,6 +1,7 @@
 /***************************************************************************
  *   Copyright 2013 Sebastian Kügler <sebas@kde.org>                       *
  *   Copyright 2014 Kai Uwe Broulik <kde@privat.broulik.de>                *
+ *   Copyright 2020 Ismael Asensio <isma.af@gmail.com>                     *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU Library General Public License as       *
@@ -70,6 +71,8 @@ Item {
 
     property bool noPlayer: mpris2Source.sources.length <= 1
 
+    property var mprisSourcesModel: []
+
     readonly property bool canControl: (!root.noPlayer && mpris2Source.currentData.CanControl) || false
     readonly property bool canGoPrevious: (canControl && mpris2Source.currentData.CanGoPrevious) || false
     readonly property bool canGoNext: (canControl && mpris2Source.currentData.CanGoNext) || false
@@ -78,7 +81,7 @@ Item {
 
     Plasmoid.switchWidth: units.gridUnit * 14
     Plasmoid.switchHeight: units.gridUnit * 10
-    Plasmoid.icon: albumArt ? albumArt : "media-playback-playing"
+    Plasmoid.icon: "media-playback-playing"
     Plasmoid.toolTipMainText: i18n("No media playing")
     Plasmoid.toolTipSubText: identity
     Plasmoid.toolTipTextFormat: Text.PlainText
@@ -205,18 +208,24 @@ Item {
         readonly property var currentData: data[current]
 
         engine: "mpris2"
-        connectedSources: current
+        connectedSources: sources
+
+        onSourceAdded: {
+            updateMprisSourcesModel()
+        }
 
         onSourceRemoved: {
             // if player is closed, reset to multiplex source
             if (source === current) {
                 current = multiplexSource
             }
+            updateMprisSourcesModel()
         }
     }
 
     Component.onCompleted: {
-        mpris2Source.serviceForSource("@multiplex").enableGlobalShortcuts();
+        mpris2Source.serviceForSource("@multiplex").enableGlobalShortcuts()
+        updateMprisSourcesModel()
     }
 
     function togglePlaying() {
@@ -268,6 +277,31 @@ Item {
         return service.startOperationCall(operation);
     }
 
+    function updateMprisSourcesModel () {
+
+        var model = [{
+            'text': i18n("Choose player automatically"),
+            'icon': 'emblem-favorite',
+            'source': mpris2Source.multiplexSource
+        }]
+
+        var sources = mpris2Source.sources
+        for (var i = 0, length = sources.length; i < length; ++i) {
+            var source = sources[i]
+            if (source === mpris2Source.multiplexSource) {
+                continue
+            }
+
+            model.push({
+                'text': mpris2Source.data[source]["Identity"],
+                'icon': mpris2Source.data[source]["Desktop Icon Name"] || mpris2Source.data[source]["Desktop Entry"] || source,
+                'source': source
+            });
+        }
+
+        root.mprisSourcesModel = model;
+    }
+
     states: [
         State {
             name: "playing"
@@ -275,7 +309,7 @@ Item {
 
             PropertyChanges {
                 target: plasmoid
-                icon: albumArt ? albumArt : "media-playback-playing"
+                icon: "media-playback-playing"
                 toolTipMainText: track
                 toolTipSubText: artist ? i18nc("by Artist (player name)", "by %1 (%2)", artist, identity) : identity
             }
@@ -286,7 +320,7 @@ Item {
 
             PropertyChanges {
                 target: plasmoid
-                icon: albumArt ? albumArt : "media-playback-paused"
+                icon: "media-playback-paused"
                 toolTipMainText: track
                 toolTipSubText: artist ? i18nc("by Artist (paused, player name)", "by %1 (paused, %2)", artist, identity) : i18nc("Paused (player name)", "Paused (%1)", identity)
             }

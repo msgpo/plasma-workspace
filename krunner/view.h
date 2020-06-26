@@ -22,6 +22,7 @@
 #include <QPointer>
 #include <QQuickView>
 #include <KConfigGroup>
+#include <KConfigWatcher>
 #include <KSharedConfig>
 
 #include <KWayland/Client/plasmashell.h>
@@ -73,6 +74,7 @@ protected:
     void showEvent(QShowEvent *event) override;
 
 public Q_SLOTS:
+    void setVisible(bool visible);
     void display();
     void displaySingleRunner(const QString &runnerName);
     void displayWithClipboardContents();
@@ -85,7 +87,7 @@ protected Q_SLOTS:
     void screenGeometryChanged();
     void resetScreenPos();
     void displayOrHide();
-    void reloadConfig();
+    void loadConfig();
     void objectIncubated();
     void slotFocusWindowChanged();
 
@@ -94,8 +96,10 @@ private:
     QPoint m_customPos;
     KDeclarative::QmlObject *m_qmlObj;
     KConfigGroup m_config;
+    KConfigWatcher::Ptr m_configWatcher;
     qreal m_offset;
     bool m_floating : 1;
+    bool m_requestedVisible = false;
     QStringList m_history;
 };
 

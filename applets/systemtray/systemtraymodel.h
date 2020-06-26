@@ -30,20 +30,47 @@ namespace Plasma {
     class Applet;
 }
 
-enum class BaseRole {
-    ItemType = Qt::UserRole + 1,
-    ItemId,
-    CanRender,
-    Category,
-    LastBaseRole
+class BaseModel: public QStandardItemModel
+{
+    Q_OBJECT
+public:
+    enum class BaseRole {
+        ItemType = Qt::UserRole + 1,
+        ItemId,
+        CanRender,
+        Category,
+        Status,
+        EffectiveStatus,
+        LastBaseRole
+    };
+
+    explicit BaseModel(QObject *parent = nullptr);
+
+    QHash<int, QByteArray> roleNames() const override;
+
+public slots:
+    void onConfigurationChanged(const KConfigGroup &config);
+
+private slots:
+    void onRowsInserted(const QModelIndex &parent, int first, int last);
+    void onDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles);
+
+private:
+    void updateEffectiveStatus(QStandardItem *dataItem);
+    Plasma::Types::ItemStatus calculateEffectiveStatus(QStandardItem *dataItem);
+    Plasma::Types::ItemStatus readStatus(QStandardItem *dataItem) const;
+
+    bool m_showAllItems;
+    QStringList m_shownItems;
+    QStringList m_hiddenItems;
 };
 
-class PlasmoidModel: public QStandardItemModel
+class PlasmoidModel: public BaseModel
 {
     Q_OBJECT
 public:
     enum class Role {
-        Applet = static_cast<int>(BaseRole::LastBaseRole) + 1,
+        Applet = static_cast<int>(BaseModel::BaseRole::LastBaseRole) + 1,
         HasApplet
     };
 
@@ -56,11 +83,11 @@ public slots:
     void removeApplet(Plasma::Applet *applet);
 };
 
-class StatusNotifierModel : public QStandardItemModel, public Plasma::DataEngineConsumer {
+class StatusNotifierModel : public BaseModel, public Plasma::DataEngineConsumer {
     Q_OBJECT
 public:
     enum class Role {
-        DataEngineSource = static_cast<int>(BaseRole::LastBaseRole) + 100,
+        DataEngineSource = static_cast<int>(BaseModel::BaseRole::LastBaseRole) + 100,
         AttentionIcon,
         AttentionIconName,
         AttentionMovieName,
@@ -77,7 +104,6 @@ public:
         Title,
         TitleChanged,
         ToolTipChanged,
-        ToolTipIcon,
         ToolTipSubTitle,
         ToolTipTitle,
         WindowId

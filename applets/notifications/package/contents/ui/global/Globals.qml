@@ -26,6 +26,7 @@ import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.components 2.0 as Components
 import org.kde.kquickcontrolsaddons 2.0
+import org.kde.kirigami 2.11 as Kirigami
 
 import org.kde.notificationmanager 1.0 as NotificationManager
 import org.kde.taskmanager 0.1 as TaskManager
@@ -90,6 +91,11 @@ QtObject {
     property var plasmoids: []
 
     property int popupLocation: {
+        // if we are on mobile, we can ignore the settings totally and just
+        // align it to top left
+        if (Kirigami.Settings.isMobile) {
+            return Qt.AlignTop | Qt.AlignHCenter;
+        }
         switch (notificationSettings.popupPosition) {
         // Auto-determine location based on plasmoid location
         case NotificationManager.Settings.CloseToWidget:
@@ -133,9 +139,14 @@ QtObject {
     onFocusDialogChanged: positionPopups()
 
     // The raw width of the popup's content item, the Dialog itself adds some margins
-    property int popupWidth: units.gridUnit * 18
+    // Make it wider when on the top or the bottom center, since there's more horizontal
+    // space available without looking weird
+    // On mobile however we don't really want to have larger notifications
+    property int popupWidth: (popupLocation & Qt.AlignHCenter) && !Kirigami.Settings.isMobile ? units.gridUnit * 28 : units.gridUnit * 18
     property int popupEdgeDistance: units.largeSpacing * 2
-    property int popupSpacing: units.largeSpacing
+    // Reduce spacing between popups when centered so the stack doesn't intrude into the
+    // view as much
+    property int popupSpacing: (popupLocation & Qt.AlignHCenter) && !Kirigami.Settings.isMobile ? units.smallSpacing : units.largeSpacing
 
     // How much vertical screen real estate the notification popups may consume
     readonly property real popupMaximumScreenFill: 0.75
@@ -323,6 +334,7 @@ QtObject {
         whitelistedNotifyRcNames: globals.inhibited ? notificationSettings.doNotDisturbPopupWhitelistedServices : []
         showJobs: notificationSettings.jobsInNotifications
         sortMode: NotificationManager.Notifications.SortByTypeAndUrgency
+        sortOrder: Qt.AscendingOrder
         groupMode: NotificationManager.Notifications.GroupDisabled
         urgencies: {
             var urgencies = 0;

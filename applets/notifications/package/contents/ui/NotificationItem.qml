@@ -40,6 +40,7 @@ ColumnLayout {
     property int notificationType
 
     property bool inGroup: false
+    property bool inHistory: false
 
     property alias applicationIconSource: notificationHeading.applicationIconSource
     property alias applicationName: notificationHeading.applicationName
@@ -111,21 +112,42 @@ ColumnLayout {
 
     spacing: units.smallSpacing
 
-    NotificationHeader {
-        id: notificationHeading
+    Item {
+        id: headingElement
         Layout.fillWidth: true
-        Layout.leftMargin: notificationItem.headingLeftPadding
-        Layout.rightMargin: notificationItem.headingRightPadding
+        Layout.preferredHeight: notificationHeading.implicitHeight
+        Layout.preferredWidth: notificationHeading.implicitWidth
+        Layout.bottomMargin: -parent.spacing
 
-        inGroup: notificationItem.inGroup
+        PlasmaCore.FrameSvgItem {
+            imagePath: "widgets/plasmoidheading"
+            prefix: "header"
+            anchors {
+                fill: parent
+                leftMargin: -margins.left
+                rightMargin: -margins.right
+            }
+            visible: !notificationItem.inHistory && fromCurrentTheme
+        }
 
-        notificationType: notificationItem.notificationType
-        jobState: notificationItem.jobState
-        jobDetails: notificationItem.jobDetails
+        NotificationHeader {
+            id: notificationHeading
+            anchors {
+                fill: parent
+                leftMargin: notificationItem.headingLeftPadding
+                rightMargin: notificationItem.headingRightPadding
+            }
 
-        onConfigureClicked: notificationItem.configureClicked()
-        onDismissClicked: notificationItem.dismissClicked()
-        onCloseClicked: notificationItem.closeClicked()
+            inGroup: notificationItem.inGroup
+
+            notificationType: notificationItem.notificationType
+            jobState: notificationItem.jobState
+            jobDetails: notificationItem.jobDetails
+
+            onConfigureClicked: notificationItem.configureClicked()
+            onDismissClicked: notificationItem.dismissClicked()
+            onCloseClicked: notificationItem.closeClicked()
+        }
     }
 
     RowLayout {
@@ -222,6 +244,8 @@ ColumnLayout {
 
             Layout.preferredWidth: units.iconSizes.large
             Layout.preferredHeight: units.iconSizes.large
+            Layout.topMargin: units.smallSpacing
+            Layout.bottomMargin: units.smallSpacing
 
             visible: iconItem.active || imageItem.active
 
@@ -317,10 +341,10 @@ ColumnLayout {
 
                 model: {
                     var buttons = [];
+                    var actionNames = (notificationItem.actionNames || []);
+                    var actionLabels = (notificationItem.actionLabels || []);
                     // HACK We want the actions to be right-aligned but Flow also reverses
-                    var actionNames = (notificationItem.actionNames || []).reverse();
-                    var actionLabels = (notificationItem.actionLabels || []).reverse();
-                    for (var i = 0; i < actionNames.length; ++i) {
+                    for (var i = actionNames.length - 1; i >= 0; --i) {
                         buttons.push({
                             actionName: actionNames[i],
                             label: actionLabels[i]
@@ -423,7 +447,7 @@ ColumnLayout {
          State {
             when: notificationItem.inGroup
             PropertyChanges {
-                target: notificationHeading
+                target: headingElement
                 parent: summaryRow
             }
 

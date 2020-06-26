@@ -20,6 +20,8 @@ import QtQuick 2.0
 import org.kde.plasma.extras 2.0 as PlasmaExtras
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
+import org.kde.kirigami 2.12 as Kirigami
+
 PlasmaExtras.ScrollArea {
     id: menu
     property alias view: menuListView
@@ -51,6 +53,16 @@ PlasmaExtras.ScrollArea {
             onEdit: menu.edit(uuid)
             onBarcode: menu.barcode(uuid)
             onAction: menu.action(uuid)
+        }
+
+        Kirigami.PlaceholderMessage {
+            id: emptyHint
+
+            anchors.centerIn: parent
+            width: parent.width - (units.largeSpacing * 4)
+
+            visible: menuListView.count === 0
+            text: i18n("Clipboard is empty")
         }
     }
 }

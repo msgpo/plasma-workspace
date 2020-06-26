@@ -35,14 +35,14 @@ namespace Plasma {
 class PlasmoidModel;
 class StatusNotifierModel;
 class SystemTrayModel;
+class SortedSystemTrayModel;
 
 class SystemTray : public Plasma::Containment
 {
     Q_OBJECT
-    Q_PROPERTY(QAbstractItemModel* systemTrayModel READ systemTrayModel CONSTANT)
-    Q_PROPERTY(QAbstractItemModel* availablePlasmoids READ availablePlasmoids CONSTANT)
+    Q_PROPERTY(QAbstractItemModel* systemTrayModel READ sortedSystemTrayModel CONSTANT)
+    Q_PROPERTY(QAbstractItemModel* configSystemTrayModel READ configSystemTrayModel CONSTANT)
     Q_PROPERTY(QStringList allowedPlasmoids READ allowedPlasmoids WRITE setAllowedPlasmoids NOTIFY allowedPlasmoidsChanged)
-    Q_PROPERTY(QStringList defaultPlasmoids READ defaultPlasmoids CONSTANT)
 
 public:
     SystemTray( QObject *parent, const QVariantList &args );
@@ -53,11 +53,11 @@ public:
     void restoreContents(KConfigGroup &group) override;
     void restorePlasmoids();
 
-    QAbstractItemModel* systemTrayModel();
+    void configChanged() override;
 
-    QStringList defaultPlasmoids() const;
+    QAbstractItemModel *sortedSystemTrayModel();
 
-    QAbstractItemModel* availablePlasmoids();
+    QAbstractItemModel *configSystemTrayModel();
 
     QStringList allowedPlasmoids() const;
     void setAllowedPlasmoids(const QStringList &allowed);
@@ -91,26 +91,16 @@ public:
      */
     Q_INVOKABLE QPointF popupPosition(QQuickItem* visualParent, int x, int y);
 
-    /**
-     * Reparent the item "before" with the same parent as the item "after",
-     * then restack it before it, using QQuickITem::stackBefore.
-     * used to quickly reorder icons in the systray (or hidden popup)
-     * @see QQuickITem::stackBefore
-     */
-    Q_INVOKABLE void reorderItemBefore(QQuickItem* before, QQuickItem* after);
-
-    /**
-     * Reparent the item "after" with the same parent as the item "before",
-     * then restack it after it, using QQuickITem::stackAfter.
-     * used to quickly reorder icons in the systray (or hidden popup)
-     * @see QQuickITem::stackAfter
-     */
-    Q_INVOKABLE void reorderItemAfter(QQuickItem* after, QQuickItem* before);
-
     Q_INVOKABLE bool isSystemTrayApplet(const QString &appletId);
 
+    /**
+     * @returns a Plasma::Service given a source name
+     * @param source source name we want a service of
+     */
+    Q_INVOKABLE Plasma::Service *serviceForSource(const QString &source);
+
 private Q_SLOTS:
-    void serviceNameFetchFinished(QDBusPendingCallWatcher* watcher, const QDBusConnection &connection);
+    void serviceNameFetchFinished(QDBusPendingCallWatcher* watcher);
     void serviceOwnerChanged(const QString &serviceName, const QString &oldOwner, const QString &newOwner);
 
 private:
@@ -119,19 +109,25 @@ private:
 
 Q_SIGNALS:
     void allowedPlasmoidsChanged();
+    void configurationChanged(const KConfigGroup &config);
 
 private:
     void initDBusActivatables();
+    SystemTrayModel *systemTrayModel();
+
     QStringList m_defaultPlasmoids;
     QHash<QString /*plugin name*/, KPluginMetaData> m_systrayApplets;
     QHash<QString /*plugin name*/, QRegExp /*DBus Service*/> m_dbusActivatableTasks;
 
     QStringList m_allowedPlasmoids;
-    PlasmoidModel *m_availablePlasmoidsModel;
     StatusNotifierModel *m_statusNotifierModel;
     SystemTrayModel *m_systemTrayModel;
+    SortedSystemTrayModel *m_sortedSystemTrayModel;
+    SortedSystemTrayModel *m_configSystemTrayModel;
     QHash<QString, int> m_knownPlugins;
     QHash<QString, int> m_dbusServiceCounts;
+    bool m_dbusSessionServiceNamesFetched = false;
+    bool m_dbusSystemServiceNamesFetched = false;
 };
 
 #endif

@@ -32,8 +32,9 @@
 #include <KWindowSystem>
 #include <KWindowEffects>
 #include <KLocalizedString>
-#include <KDirWatch>
 #include <KCrash>
+#include <KService>
+#include <KIO/CommandLauncherJob>
 
 #include <kdeclarative/qmlobject.h>
 
@@ -60,10 +61,17 @@ View::View(QWindow *)
 
     //used only by screen readers
     setTitle(i18n("KRunner"));
-    m_config = KConfigGroup(KSharedConfig::openConfig(QStringLiteral("krunnerrc")), "General");
 
-    setFreeFloating(m_config.readEntry("FreeFloating", false));
-    reloadConfig();
+    m_config = KConfigGroup(KSharedConfig::openConfig(), "General");
+    m_configWatcher = KConfigWatcher::create(KSharedConfig::openConfig());
+    connect(m_configWatcher.data(), &KConfigWatcher::configChanged, this, [this](const KConfigGroup &group, const QByteArrayList &names) {
+        Q_UNUSED(names);
+        if (group.name() == QLatin1String("General")) {
+            loadConfig();
+        }
+    });
+
+    loadConfig();
 
     new AppAdaptor(this);
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/App"), this);
@@ -73,7 +81,7 @@ View::View(QWindow *)
     connect(m_qmlObj, &KDeclarative::QmlObject::finished, this, &View::objectIncubated);
 
     KPackage::Package package = KPackage::PackageLoader::self()->loadPackage(QStringLiteral("Plasma/LookAndFeel"));
-    KConfigGroup cg(KSharedConfig::openConfig(QStringLiteral("kdeglobals")), "KDE");
+    KConfigGroup cg(KSharedConfig::openConfig(), "KDE");
     const QString packageName = cg.readEntry("LookAndFeelPackage", QString());
     if (!packageName.isEmpty()) {
         package.setPath(packageName);
@@ -103,20 +111,6 @@ View::View(QWindow *)
     connect(qGuiApp, &QGuiApplication::screenRemoved, this, screenRemoved);
 
     connect(KWindowSystem::self(), &KWindowSystem::workAreaChanged, this, &View::resetScreenPos);
-
-    connect(this, &View::visibleChanged, this, &View::resetScreenPos);
-
-    KDirWatch::self()->addFile(m_config.name());
-
-    // Catch both, direct changes to the config file ...
-    connect(KDirWatch::self(), &KDirWatch::dirty, this, &View::reloadConfig);
-    connect(KDirWatch::self(), &KDirWatch::created, this, &View::reloadConfig);
-
-    if (m_floating) {
-        setLocation(Plasma::Types::Floating);
-    } else {
-        setLocation(Plasma::Types::TopEdge);
-    }
 
     connect(qGuiApp, &QGuiApplication::focusWindowChanged, this, &View::slotFocusWindowChanged);
 }
@@ -160,9 +154,8 @@ void View::setFreeFloating(bool floating)
     positionOnScreen();
 }
 
-void View::reloadConfig()
+void View::loadConfig()
 {
-    m_config.config()->reparseConfiguration();
     setFreeFloating(m_config.readEntry("FreeFloating", false));
 
     const QStringList history = m_config.readEntry("history", QStringList());
@@ -219,6 +212,10 @@ void View::resetScreenPos()
 
 void View::positionOnScreen()
 {
+    if (!m_requestedVisible) {
+        return;
+    }
+
     QScreen *shownOnScreen = QGuiApplication::primaryScreen();
 
     const auto screens = QGuiApplication::screens();
@@ -229,42 +226,54 @@ void View::positionOnScreen()
         }
     }
 
-    setScreen(shownOnScreen);
-    const QRect r = shownOnScreen->availableGeometry();
+    // in wayland, QScreen::availableGeometry() returns QScreen::geometry()
+    // we could get a better value from plasmashell
+    // BUG: 386114
+    QDBusInterface strutManager("org.kde.plasmashell", "/StrutManager", "org.kde.PlasmaShell.StrutManager");
+    QDBusPendingCall async = strutManager.asyncCall("availableScreenRect", shownOnScreen->name());
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(async, this);
 
-    if (m_floating && !m_customPos.isNull()) {
-        int x = qBound(r.left(), m_customPos.x(), r.right() - width());
-        int y = qBound(r.top(), m_customPos.y(), r.bottom() - height());
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, shownOnScreen]() {
+        watcher->deleteLater();
+        QDBusPendingReply<QRect> reply = *watcher;
+
+        const QRect r = reply.isValid() ? reply.value() : shownOnScreen->availableGeometry();
+
+        if (m_floating && !m_customPos.isNull()) {
+            int x = qBound(r.left(), m_customPos.x(), r.right() - width());
+            int y = qBound(r.top(), m_customPos.y(), r.bottom() - height());
+            setPosition(x, y);
+            PlasmaQuick::Dialog::setVisible(true);
+            return;
+        }
+
+        const int w = width();
+        int x = r.left() + (r.width() * m_offset) - (w / 2);
+
+        int y = r.top();
+        if (m_floating) {
+            y += r.height() / 3;
+        }
+
+        x = qBound(r.left(), x, r.right() - width());
+        y = qBound(r.top(), y, r.bottom() - height());
+
         setPosition(x, y);
-        show();
-        return;
-    }
+        PlasmaQuick::Dialog::setVisible(true);
 
-    const int w = width();
-    int x = r.left() + (r.width() * m_offset) - (w / 2);
+        if (m_floating) {
+            KWindowSystem::setOnDesktop(winId(), KWindowSystem::currentDesktop());
+            KWindowSystem::setType(winId(), NET::Normal);
+            //Turn the sliding effect off
+            setLocation(Plasma::Types::Floating);
+        } else {
+            KWindowSystem::setOnAllDesktops(winId(), true);
+            setLocation(Plasma::Types::TopEdge);
+        }
 
-    int y = r.top();
-    if (m_floating) {
-        y += r.height() / 3;
-    }
+        KWindowSystem::forceActiveWindow(winId());
 
-    x = qBound(r.left(), x, r.right() - width());
-    y = qBound(r.top(), y, r.bottom() - height());
-
-    setPosition(x, y);
-
-    if (m_floating) {
-        KWindowSystem::setOnDesktop(winId(), KWindowSystem::currentDesktop());
-        KWindowSystem::setType(winId(), NET::Normal);
-        //Turn the sliding effect off
-        KWindowEffects::slideWindow(winId(), KWindowEffects::NoEdge, 0);
-    } else {
-        KWindowSystem::setOnAllDesktops(winId(), true);
-        KWindowEffects::slideWindow(winId(), KWindowEffects::TopEdge, 0);
-    }
-
-    KWindowSystem::forceActiveWindow(winId());
-    //qDebug() << "moving to" << m_screenPos[screen];
+    });
 }
 
 void View::displayOrHide()
@@ -325,7 +334,18 @@ void View::switchUser()
 
 void View::displayConfiguration()
 {
-    QProcess::startDetached(QStringLiteral("kcmshell5"), QStringList() << QStringLiteral("plasmasearch"));
+    const QString systemSettings = QStringLiteral("systemsettings");
+    const QStringList kcmToOpen = QStringList(QStringLiteral("kcm_plasmasearch"));
+    KIO::CommandLauncherJob *job = nullptr;
+
+    if (KService::serviceByDesktopName(systemSettings)) {
+        job = new KIO::CommandLauncherJob(QStringLiteral("systemsettings5"), kcmToOpen);
+        job->setDesktopName(systemSettings);
+    } else {
+        job = new KIO::CommandLauncherJob(QStringLiteral("kcmshell5"), kcmToOpen);
+    }
+
+    job->start();
 }
 
 bool View::canConfigure() const
@@ -389,4 +409,15 @@ void View::removeFromHistory(int index)
 void View::writeHistory()
 {
     m_config.writeEntry("history", m_history);
+}
+
+void View::setVisible(bool visible)
+{
+    m_requestedVisible = visible;
+
+    if (visible && !m_floating) {
+        positionOnScreen();
+    } else {
+        PlasmaQuick::Dialog::setVisible(visible);
+    }
 }

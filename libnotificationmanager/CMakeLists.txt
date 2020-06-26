@@ -14,11 +14,13 @@ set(notificationmanager_LIB_SRCS
     notifications.cpp
     notification.cpp
 
+    abstractnotificationsmodel.cpp
     notificationsmodel.cpp
     notificationfilterproxymodel.cpp
     notificationsortproxymodel.cpp
     notificationgroupingproxymodel.cpp
     notificationgroupcollapsingproxymodel.cpp
+    watchednotificationsmodel.cpp
 
     jobsmodel.cpp
     jobsmodel_p.cpp
@@ -38,14 +40,17 @@ ecm_qt_declare_logging_category(notificationmanager_LIB_SRCS
 install(FILES libnotificationmanager.categories DESTINATION ${KDE_INSTALL_LOGGINGCATEGORIESDIR})
 
 # Settings
-kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/donotdisturbsettings.kcfgc)
-kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/notificationsettings.kcfgc)
-kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/jobsettings.kcfgc)
-kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/badgesettings.kcfgc)
+kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/donotdisturbsettings.kcfgc GENERATE_MOC)
+kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/notificationsettings.kcfgc GENERATE_MOC)
+kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/jobsettings.kcfgc GENERATE_MOC)
+kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/badgesettings.kcfgc GENERATE_MOC)
+kconfig_add_kcfg_files(notificationmanager_LIB_SRCS kcfg/behaviorsettings.kcfgc GENERATE_MOC)
 
 # DBus
 # Notifications
 qt5_add_dbus_adaptor(notificationmanager_LIB_SRCS dbus/org.freedesktop.Notifications.xml server_p.h NotificationManager::ServerPrivate)
+qt5_add_dbus_adaptor(notificationmanager_LIB_SRCS dbus/org.kde.notificationmanager.xml server_p.h NotificationManager::ServerPrivate)
+qt5_add_dbus_interface(notificationmanager_LIB_SRCS dbus/org.freedesktop.Notifications.xml fdonotifications_interface)
 # JobView
 qt5_add_dbus_adaptor(notificationmanager_LIB_SRCS dbus/org.kde.kuiserver.xml jobsmodel_p.h NotificationManager::JobsModelPrivate)
 qt5_add_dbus_adaptor(notificationmanager_LIB_SRCS dbus/org.kde.JobViewServer.xml jobsmodel_p.h NotificationManager::JobsModelPrivate)
@@ -93,6 +98,11 @@ install(FILES
     jobsmodel.h
     job.h
     settings.h
+    ${CMAKE_CURRENT_BINARY_DIR}/donotdisturbsettings.h
+    ${CMAKE_CURRENT_BINARY_DIR}/notificationsettings.h
+    ${CMAKE_CURRENT_BINARY_DIR}/jobsettings.h
+    ${CMAKE_CURRENT_BINARY_DIR}/badgesettings.h
+    ${CMAKE_CURRENT_BINARY_DIR}/behaviorsettings.h
     ${CMAKE_CURRENT_BINARY_DIR}/notificationmanager_export.h
     DESTINATION ${KDE_INSTALL_INCLUDEDIR}/notificationmanager COMPONENT Devel
 )

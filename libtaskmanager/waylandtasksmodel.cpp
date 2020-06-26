@@ -22,9 +22,7 @@ License along with this library.  If not, see <http://www.gnu.org/licenses/>.
 #include "tasktools.h"
 #include "virtualdesktopinfo.h"
 
-#include <KActivities/ResourceInstance>
 #include <KDirWatch>
-#include <KRun>
 #include <KService>
 #include <KSharedConfig>
 #include <KWayland/Client/connection_thread.h>
@@ -312,6 +310,12 @@ void WaylandTasksModel::Private::addWindow(KWayland::Client::PlasmaWindow *windo
     QObject::connect(window, &KWayland::Client::PlasmaWindow::skipTaskbarChanged, q,
         [window, this] { this->dataChanged(window, SkipTaskbar); }
     );
+
+    QObject::connect(window, &KWayland::Client::PlasmaWindow::applicationMenuChanged, q,
+        [window, this] {
+            this->dataChanged(window, QVector<int>{ApplicationMenuServiceName, ApplicationMenuObjectPath});
+        }
+    );
 }
 
 AppData WaylandTasksModel::Private::appData(KWayland::Client::PlasmaWindow *window)
@@ -461,6 +465,12 @@ QVariant WaylandTasksModel::data(const QModelIndex &index, int role) const
         // FIXME Implement.
     } else if (role == AppPid) {
         return window->pid();
+    } else if (role == StackingOrder) {
+        return d->windowManagement->stackingOrder().indexOf(window->internalId());
+    } else if (role == ApplicationMenuObjectPath) {
+        return window->applicationMenuObjectPath();
+    } else if (role == ApplicationMenuServiceName) {
+        return window->applicationMenuServiceName();
     }
 
     return QVariant();

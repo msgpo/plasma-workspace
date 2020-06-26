@@ -209,6 +209,7 @@ void Notifications::Private::initProxyModels()
     if (!sortModel) {
         sortModel = new NotificationSortProxyModel(q);
         connect(sortModel, &NotificationSortProxyModel::sortModeChanged, q, &Notifications::sortModeChanged);
+        connect(sortModel, &NotificationSortProxyModel::sortOrderChanged, q, &Notifications::sortOrderChanged);
     }
 
     if (!limiterModel) {
@@ -572,6 +573,16 @@ void Notifications::setSortMode(SortMode sortMode)
     d->sortModel->setSortMode(sortMode);
 }
 
+Qt::SortOrder Notifications::sortOrder() const
+{
+    return d->sortModel->sortOrder();
+}
+
+void Notifications::setSortOrder(Qt::SortOrder sortOrder)
+{
+    d->sortModel->setSortOrder(sortOrder);
+}
+
 Notifications::GroupMode Notifications::groupMode() const
 {
     return d->groupMode;
@@ -832,26 +843,5 @@ int Notifications::rowCount(const QModelIndex &parent) const
 
 QHash<int, QByteArray> Notifications::roleNames() const
 {
-    static QHash<int, QByteArray> s_roles;
-
-    if (s_roles.isEmpty()) {
-        s_roles = QSortFilterProxyModel::roleNames();
-
-        // This generates role names from the Roles enum in the form of: FooRole -> foo
-        const QMetaEnum e = staticMetaObject.enumerator(staticMetaObject.indexOfEnumerator("Roles"));
-
-        for (int i = 0; i < e.keyCount(); ++i) {
-            const int value = e.value(i);
-
-            QByteArray key(e.key(i));
-            key[0] = key[0] + 32; // lower case first letter
-            key.chop(4); // strip "Role" suffix
-
-            s_roles.insert(value, key);
-        }
-
-        s_roles.insert(IdRole, QByteArrayLiteral("notificationId")); // id is QML-reserved
-    }
-
-    return s_roles;
+    return Utils::roleNames();
 }

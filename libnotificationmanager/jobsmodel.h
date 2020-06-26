@@ -50,13 +50,14 @@ public:
     bool init();
 
     /**
-     * Whether the notification service could be reigstered
+     * Whether the notification service could be registered
      */
     bool isValid() const;
 
     QVariant data(const QModelIndex &index, int role) const override;
     bool setData(const QModelIndex &index, const QVariant &value, int role) override;
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    QHash<int, QByteArray> roleNames() const override;
 
     /**
      * @brief Close a job

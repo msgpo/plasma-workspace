@@ -62,6 +62,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "startupadaptor.h"
 
+#include "../config-startplasma.h"
+
 class Phase: public KCompositeJob
 {
 Q_OBJECT
@@ -97,7 +99,7 @@ public:
     void start() override {
         qCDebug(PLASMA_SESSION) << "Phase 0";
         addSubjob(new AutoStartAppsJob(m_autostart, 0));
-        addSubjob(new KCMInitJob(1));
+        addSubjob(new KCMInitJob());
         addSubjob(new SleepJob());
     }
 };
@@ -127,7 +129,6 @@ public:
         qCDebug(PLASMA_SESSION) << "Phase 2";
         addSubjob(new AutoStartAppsJob(m_autostart, 2));
         addSubjob(new KDEDInitJob());
-        addSubjob(new KCMInitJob(2));
         runUserAutostart();
     }
 };
@@ -204,34 +205,61 @@ Startup::Startup(QObject *parent):
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/Startup"), QStringLiteral("org.kde.Startup"), this);
     QDBusConnection::sessionBus().registerService(QStringLiteral("org.kde.Startup"));
 
+    upAndRunning(QStringLiteral("ksmserver"));
     const AutoStart autostart;
 
-    auto phase0 = new StartupPhase0(autostart, this);
-    auto phase1 = new StartupPhase1(autostart, this);
-    auto phase2 = new StartupPhase2(autostart, this);
-    auto restoreSession = new RestoreSessionJob();
+    QProcess::execute(QStringLiteral(CMAKE_INSTALL_FULL_LIBEXECDIR_KF5 "/start_kdeinit_wrapper"));
 
-    // this includes starting kwin (currently)
-    // forward our arguments into ksmserver to match startplasma expectations
-    QStringList arguments = qApp->arguments();
-    arguments.removeFirst();
-    auto ksmserverJob = new StartServiceJob(QStringLiteral("ksmserver"), arguments, QStringLiteral("org.kde.ksmserver"));
+    KJob* phase1;
+    QProcessEnvironment kdedProcessEnv;
+    kdedProcessEnv.insert(QStringLiteral("KDED_STARTED_BY_KDEINIT"), QStringLiteral("1"));
 
-    connect(ksmserverJob, &KJob::finished, phase0, &KJob::start);
+    KJob *windowManagerJob = nullptr;
 
-    connect(phase0, &KJob::finished, phase1, &KJob::start);
+    if (qEnvironmentVariable("XDG_SESSION_TYPE") != QLatin1String("wayland")) {
+        QString windowManager;
+        if (qEnvironmentVariableIsSet("KDEWM")) {
+            windowManager = qEnvironmentVariable("KDEWM");
+        }
+        if (windowManager.isEmpty()) {
+            windowManager = QStringLiteral(KWIN_BIN);
+        }
 
-    connect(phase1, &KJob::finished, restoreSession, &KJob::start);
-    connect(restoreSession, &KJob::finished, phase2, &KJob::start);
-    upAndRunning(QStringLiteral("ksmserver"));
+        if (windowManager == QLatin1String(KWIN_BIN)) {
+            windowManagerJob = new StartServiceJob(windowManager, {}, QStringLiteral("org.kde.KWin"));
+        } else {
+            windowManagerJob = new StartServiceJob(windowManager, {}, {});
+        }
+    }
+
+    const QVector<KJob*> sequence = {
+        new StartProcessJob(QStringLiteral("kcminit_startup"), {}),
+        new StartServiceJob(QStringLiteral("kded5"), {}, QStringLiteral("org.kde.kded5"), kdedProcessEnv),
+        windowManagerJob,
+        new StartServiceJob(QStringLiteral("ksmserver"), QCoreApplication::instance()->arguments().mid(1), QStringLiteral("org.kde.ksmserver")),
+        new StartupPhase0(autostart, this),
+        phase1 = new StartupPhase1(autostart, this),
+        new RestoreSessionJob(),
+        new StartupPhase2(autostart, this),
+    };
+    KJob* last = nullptr;
+    for(KJob* job : sequence) {
+        if (!job) {
+            continue;
+        }
+        if (last) {
+            connect(last, &KJob::finished, job, &KJob::start);
+        }
+        last = job;
+    }
 
     connect(phase1, &KJob::finished, this, []() {
         NotificationThread *loginSound = new NotificationThread();
         connect(loginSound, &NotificationThread::finished, loginSound, &NotificationThread::deleteLater);
         loginSound->start();});
-    connect(phase2, &KJob::finished, this, &Startup::finishStartup);
 
-    ksmserverJob->start();
+    connect(sequence.last(), &KJob::finished, this, &Startup::finishStartup);
+    sequence.first()->start();
 }
 
 void Startup::upAndRunning( const QString& msg )
@@ -248,6 +276,7 @@ void Startup::finishStartup()
 {
     qCDebug(PLASMA_SESSION) << "Finished";
     upAndRunning(QStringLiteral("ready"));
+    qApp->quit();
 }
 
 void Startup::updateLaunchEnv(const QString &key, const QString &value)
@@ -255,8 +284,8 @@ void Startup::updateLaunchEnv(const QString &key, const QString &value)
     qputenv(key.toLatin1(), value.toLatin1());
 }
 
-KCMInitJob::KCMInitJob(int phase)
-    :m_phase(phase)
+KCMInitJob::KCMInitJob()
+    : KJob()
 {
 }
 
@@ -266,12 +295,7 @@ void KCMInitJob::start() {
                               QDBusConnection::sessionBus());
     kcminit.setTimeout(10 * 1000);
 
-    QDBusPendingReply<void> pending;
-    if (m_phase == 1) {
-        pending = kcminit.runPhase1();
-    } else {
-        pending = kcminit.runPhase2();
-    }
+    QDBusPendingReply<void> pending = kcminit.runPhase1();
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending, this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this]() {emitResult();});
     connect(watcher, &QDBusPendingCallWatcher::finished, watcher, &QObject::deleteLater);
@@ -323,7 +347,7 @@ void StartupPhase2::runUserAutostart()
     }
 
     const QStringList entries = dir.entryList(QDir::Files);
-    foreach (const QString &file, entries) {
+    for (const QString &file : entries) {
         // Don't execute backup files
         if (!file.endsWith(QLatin1Char('~')) && !file.endsWith(QLatin1String(".bak")) &&
                 (file[0] != QLatin1Char('%') || !file.endsWith(QLatin1Char('%'))) &&
@@ -361,7 +385,7 @@ bool StartupPhase2::migrateKDE4Autostart(const QString &autostartFolder)
     const QDir oldFolder(oldAutostart);
     qCDebug(PLASMA_SESSION) << "Copying autostart files from" << oldFolder.path();
     const QStringList entries = oldFolder.entryList(QDir::Files);
-    foreach (const QString &file, entries) {
+    for (const QString &file : entries) {
         const QString src = oldFolder.absolutePath() + QLatin1Char('/') + file;
         const QString dest = autostartFolder + QLatin1Char('/') + file;
         QFileInfo info(src);
@@ -414,26 +438,63 @@ void AutoStartAppsJob::start() {
 }
 
 
-StartServiceJob::StartServiceJob(const QString &process, const QStringList &args, const QString &serviceId):
-    KJob(),
-    m_process(process),
-    m_args(args),
-    m_serviceId(serviceId)
+
+StartServiceJob::StartServiceJob(const QString &process, const QStringList &args, const QString &serviceId, const QProcessEnvironment &additionalEnv)
+    : KJob()
+    , m_process(new QProcess(this))
+    , m_serviceId(serviceId)
+    , m_additionalEnv(additionalEnv)
 {
+    m_process->setProgram(process);
+    m_process->setArguments(args);
+
     auto watcher = new QDBusServiceWatcher(serviceId, QDBusConnection::sessionBus(), QDBusServiceWatcher::WatchForRegistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, &StartServiceJob::emitResult);
 }
 
 void StartServiceJob::start()
 {
-    if (QDBusConnection::sessionBus().interface()->isServiceRegistered(m_serviceId)) {
+    auto env = QProcessEnvironment::systemEnvironment();
+    env.insert(m_additionalEnv);
+    m_process->setProcessEnvironment(env);
+
+    if (!m_serviceId.isEmpty() && QDBusConnection::sessionBus().interface()->isServiceRegistered(m_serviceId)) {
         qCDebug(PLASMA_SESSION) << m_process << "already running";
         emitResult();
         return;
     }
-    qCDebug(PLASMA_SESSION) << "Starting " << m_process << m_args;
-    QProcess::startDetached(m_process, m_args);
+    qCDebug(PLASMA_SESSION) << "Starting " << m_process->program() << m_process->arguments();
+    if (!m_process->startDetached()) {
+        qCWarning(PLASMA_SESSION) << "error starting process" << m_process->program() << m_process->arguments();
+        emitResult();
+    }
+
+    if (m_serviceId.isEmpty()) {
+        emitResult();
+    }
 }
 
+StartProcessJob::StartProcessJob(const QString &process, const QStringList &args, const QProcessEnvironment &additionalEnv)
+    : KJob()
+    , m_process(new QProcess(this))
+{
+    m_process->setProgram(process);
+    m_process->setArguments(args);
+    auto env = QProcessEnvironment::systemEnvironment();
+    env.insert(additionalEnv);
+    m_process->setProcessEnvironment(env);
+
+    connect(m_process, static_cast<void (QProcess::*)(int)>(&QProcess::finished), [this](int exitCode) {
+        qCInfo(PLASMA_SESSION) << "process job " << m_process->program() << "finished with exit code " << exitCode;
+        emitResult();
+    });
+}
+
+void StartProcessJob::start()
+{
+    qCDebug(PLASMA_SESSION) << "Starting " << m_process->program() << m_process->arguments();
+
+    m_process->start();
+}
 
 #include "startup.moc"

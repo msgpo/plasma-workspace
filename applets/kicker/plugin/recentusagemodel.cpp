@@ -37,8 +37,10 @@
 
 #include <KActivities/ResourceInstance>
 #include <KFileItem>
+#include <KIO/ApplicationLauncherJob>
 #include <KLocalizedString>
 #include <KMimeTypeTrader>
+#include <KNotificationJobUiDelegate>
 #include <KRun>
 #include <KService>
 #include <KStartupInfo>
@@ -81,7 +83,9 @@ InvalidAppsFilterProxy::~InvalidAppsFilterProxy()
 void InvalidAppsFilterProxy::connectNewFavoritesModel()
 {
     KAStatsFavoritesModel* favoritesModel = static_cast<KAStatsFavoritesModel *>(m_parentModel->favoritesModel());
-    connect(favoritesModel, &KAStatsFavoritesModel::favoritesChanged, this, &QSortFilterProxyModel::invalidate);
+    if (favoritesModel) {
+        connect(favoritesModel, &KAStatsFavoritesModel::favoritesChanged, this, &QSortFilterProxyModel::invalidate);
+    }
 
     invalidate();
 }
@@ -138,7 +142,19 @@ RecentUsageModel::~RecentUsageModel()
 {
 }
 
-RecentUsageModel::IncludeUsage RecentUsageModel::usage() const
+void RecentUsageModel::setShownItems(IncludeUsage usage)
+{
+    if (m_usage == usage) {
+        return;
+    }
+
+    m_usage = usage;
+
+    emit shownItemsChanged();
+    refresh();
+}
+
+RecentUsageModel::IncludeUsage RecentUsageModel::shownItems() const
 {
     return m_usage;
 }
@@ -205,7 +221,7 @@ QVariant RecentUsageModel::appData(const QString &resource, int role) const
             return AppEntry::nameFromService(service, AppEntry::NameOnly);
         }
     } else if (role == Qt::DecorationRole) {
-        return QIcon::fromTheme(service->icon(), QIcon::fromTheme(QStringLiteral("unknown")));
+        return service->icon();
     } else if (role == Kicker::DescriptionRole) {
         return service->comment();
     } else if (role == Kicker::GroupRole) {
@@ -343,18 +359,9 @@ bool RecentUsageModel::trigger(int row, const QString &actionId, const QVariant 
 
         if (!resource.startsWith(QLatin1String("applications:"))) {
             const QUrl resourceUrl = docData(resource, Kicker::UrlRole).toUrl();
-            const QList<QUrl> urlsList{resourceUrl};
 
-            QMimeDatabase db;
-            QMimeType mime = db.mimeTypeForUrl(resourceUrl);
-            KService::Ptr service = KMimeTypeTrader::self()->preferredService(mime.name());
-            if (service) {
-                KRun::runApplication(*service, urlsList, nullptr);
-            } else {
-                QTimer::singleShot(0, [urlsList] {
-                    KRun::displayOpenWithDialog(urlsList, nullptr);
-                });
-            }
+            KRun *run = new KRun(resourceUrl, nullptr);
+            run->setRunExecutables(false);
 
             return true;
         }
@@ -374,8 +381,10 @@ bool RecentUsageModel::trigger(int row, const QString &actionId, const QVariant 
         }
 #endif
 
-        // TODO Once we depend on KDE Frameworks 5.24 and D1902 is merged, use KRun::runApplication instead
-        KRun::runService(*service, {}, nullptr, true, {}, KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+        auto *job = new KIO::ApplicationLauncherJob(service);
+        job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
+        job->setStartupId(KStartupInfo::createNewStartupIdForTimestamp(timeStamp));
+        job->start();
 
         KActivities::ResourceInstance::notifyAccessed(QUrl(QStringLiteral("applications:") + storageId),
             QStringLiteral("org.kde.plasma.kicker"));
@@ -404,6 +413,14 @@ bool RecentUsageModel::trigger(int row, const QString &actionId, const QVariant 
         }
 
         return false;
+    } else if (actionId == QLatin1String("_kicker_jumpListAction")) {
+        const QString storageId = sourceModel()->data(sourceModel()->index(row, 0), ResultModel::ResourceRole)
+                                .toString().section(QLatin1Char(':'), 1);
+        KService::Ptr service = KService::serviceByStorageId(storageId);
+        service->setExec(argument.toString());
+        KIO::ApplicationLauncherJob *job = new KIO::ApplicationLauncherJob(service);
+        job->start();
+        return true;
     } else if (withinBounds) {
         const QString &resource = resourceAt(row);
 

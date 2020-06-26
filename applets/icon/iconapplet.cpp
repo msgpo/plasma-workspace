@@ -41,9 +41,13 @@
 #include <KFileUtils>
 #include <KJobWidgets>
 #include <KLocalizedString>
+#include <KNotificationJobUiDelegate>
 #include <KProtocolManager>
 #include <KRun>
+#include <KService>
+#include <KServiceAction>
 
+#include <KIO/ApplicationLauncherJob>
 #include <KIO/DropJob>
 #include <KIO/FavIconRequestJob>
 #include <KIO/OpenFileManagerWindowJob>
@@ -333,23 +337,24 @@ QList<QAction *> IconApplet::contextualActions()
     KDesktopFile desktopFile(m_localPath);
 
     if (m_jumpListActions.isEmpty()) {
-        const QStringList actions = desktopFile.readActions();
-        for (const QString &actionName : actions) {
-            const KConfigGroup &actionGroup = desktopFile.actionGroup(actionName);
+        const KService service(m_localPath);
 
-            if (!actionGroup.isValid() || !actionGroup.exists()) {
+        const auto jumpListActions = service.actions();
+        for (const KServiceAction &serviceAction : jumpListActions) {
+            if (serviceAction.noDisplay()) {
                 continue;
             }
 
-            const QString name = actionGroup.readEntry(QStringLiteral("Name"));
-            const QString exec = actionGroup.readEntry(QStringLiteral("Exec"));
-            if (name.isEmpty() || exec.isEmpty()) {
-                continue;
+            QAction *action = new QAction(QIcon::fromTheme(serviceAction.icon()), serviceAction.text(), this);
+            if (serviceAction.isSeparator()) {
+                action->setSeparator(true);
             }
 
-            QAction *action = new QAction(QIcon::fromTheme(actionGroup.readEntry("Icon")), name, this);
-            connect(action, &QAction::triggered, this, [this, exec] {
-                KRun::run(exec, {}, nullptr, m_name, m_iconName);
+            connect(action, &QAction::triggered, this, [this, serviceAction]() {
+                auto *job = new KIO::ApplicationLauncherJob(serviceAction);
+                auto *delegate = new KNotificationJobUiDelegate(KJobUiDelegate::AutoErrorHandlingEnabled);
+                job->setUiDelegate(delegate);
+                job->start();
             });
 
             m_jumpListActions << action;
@@ -444,7 +449,11 @@ void IconApplet::processDrop(QObject *dropEvent)
     const QString &localPath = m_url.toLocalFile();
 
     if (KDesktopFile::isDesktopFile(localPath)) {
-        KRun::runService(KService(localPath), urls, nullptr);
+        KService::Ptr service(new KService(localPath));
+        auto *job = new KIO::ApplicationLauncherJob(service);
+        job->setUrls(urls);
+        job->setUiDelegate(new KNotificationJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled));
+        job->start();
         return;
     }
 

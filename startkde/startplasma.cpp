@@ -17,11 +17,17 @@
    Boston, MA 02110-1301, USA.
 */
 
+#include <config-startplasma.h>
+
 #include <QDir>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTextStream>
+#include <QEventLoop>
+
 #include <QDBusConnectionInterface>
+#include <QDBusServiceWatcher>
+
 #include <KConfig>
 #include <KConfigGroup>
 
@@ -122,11 +128,27 @@ void runStartupConfig()
     KConfig config(QStringLiteral("plasma-localerc"));
     KConfigGroup formatsConfig = KConfigGroup(&config, "Formats");
 
-    const auto lcValues = {
-        "LANG", "LC_NUMERIC", "LC_TIME", "LC_MONETARY", "LC_MEASUREMENT", "LC_COLLATE", "LC_CTYPE"
-    };
-    for (auto lc : lcValues) {
-        const QString value = formatsConfig.readEntry(lc, QString());
+    // In case we don't have a value in the config file, but in the ENV variables, write it
+    if (!formatsConfig.hasKey("LANG") && !qEnvironmentVariableIsEmpty("LANG")) {
+        formatsConfig.writeEntry("LANG", qgetenv("LANG"));
+        formatsConfig.sync();
+    }
+
+    const auto explicitLCValues = { "LANG", "LC_COLLATE", "LC_CTYPE" };
+    const auto detailedLCValues = { "LC_NUMERIC", "LC_TIME", "LC_MONETARY", "LC_MEASUREMENT" };
+    const QString lcLang =  formatsConfig.readEntry("LANG");
+    const bool useDetailed = formatsConfig.readEntry("useDetailed", false);
+
+    // These values have to explicitly set
+    for (auto lc : explicitLCValues) {
+        const QString value = formatsConfig.readEntry(lc);
+        if (!value.isEmpty()) {
+            qputenv(lc, value.toUtf8());
+        }
+    }
+    // If we have the "Detailed Settings" checkbox unchecked we want to use the value from the LANG entry
+    for (auto lc : detailedLCValues) {
+        const QString value = useDetailed ? formatsConfig.readEntry(lc) : lcLang;
         if (!value.isEmpty()) {
             qputenv(lc, value.toUtf8());
         }
@@ -137,11 +159,6 @@ void runStartupConfig()
     if (!value.isEmpty()) {
         qputenv("LANGUAGE", value.toUtf8());
     }
-
-    if (!formatsConfig.hasKey("LANG") && !qEnvironmentVariableIsEmpty("LANG")) {
-        formatsConfig.writeEntry("LANG", qgetenv("LANG"));
-        formatsConfig.sync();
-    }
 }
 
 void setupCursor(bool wayland)
@@ -149,9 +166,9 @@ void setupCursor(bool wayland)
     const KConfig cfg(QStringLiteral("kcminputrc"));
     const KConfigGroup inputCfg = cfg.group("Mouse");
 
-    const auto kcminputrc_mouse_cursorsize = inputCfg.readEntry("cursorSize", QString());
+    const auto kcminputrc_mouse_cursorsize = inputCfg.readEntry("cursorSize", 24);
     const auto kcminputrc_mouse_cursortheme = inputCfg.readEntry("cursorTheme", QStringLiteral("breeze_cursors"));
-    if (!kcminputrc_mouse_cursortheme.isEmpty() || !kcminputrc_mouse_cursorsize.isEmpty()) {
+    if (!kcminputrc_mouse_cursortheme.isEmpty()) {
 #ifdef XCURSOR_PATH
         QByteArray path(XCURSOR_PATH);
         path.replace("$XCURSOR_PATH", qgetenv("XCURSOR_PATH"));
@@ -160,20 +177,24 @@ void setupCursor(bool wayland)
     }
 
     //TODO: consider linking directly
-    const int applyMouseStatus = wayland ? 0 : runSync(QStringLiteral("kapplymousetheme"), { kcminputrc_mouse_cursortheme, kcminputrc_mouse_cursorsize });
+    const int applyMouseStatus = wayland ? 0 : runSync(QStringLiteral("kapplymousetheme"), { kcminputrc_mouse_cursortheme, QString::number(kcminputrc_mouse_cursorsize) });
     if (applyMouseStatus == 10) {
         qputenv("XCURSOR_THEME", "breeze_cursors");
     } else if (!kcminputrc_mouse_cursortheme.isEmpty()) {
         qputenv("XCURSOR_THEME", kcminputrc_mouse_cursortheme.toUtf8());
     }
-    if (!kcminputrc_mouse_cursorsize.isEmpty()) {
-        qputenv("XCURSOR_SIZE", kcminputrc_mouse_cursorsize.toUtf8());
-    }
+    qputenv("XCURSOR_SIZE", QByteArray::number(kcminputrc_mouse_cursorsize));
 }
 
 // Source scripts found in <config locations>/plasma-workspace/env/*.sh
 // (where <config locations> correspond to the system and user's configuration
 // directory.
+//
+// Scripts are sourced in reverse order of priority of their directory, as defined
+// by `QStandardPaths::standardLocations`. This ensures that high-priority scripts
+// (such as those in the user's home directory) are sourced last and take precedence
+// over lower-priority scripts (such as system defaults). Scripts in the same 
+// directory are sourced in lexical order of their filename.
 //
 // This is where you can define environment variables that will be available to
 // all KDE programs, so this is where you can run agents using e.g. eval `ssh-agent`
@@ -187,10 +208,17 @@ void setupCursor(bool wayland)
 void runEnvironmentScripts()
 {
     QStringList scripts;
-    const auto locations = QStandardPaths::locateAll(QStandardPaths::GenericConfigLocation, QStringLiteral("plasma-workspace/env"), QStandardPaths::LocateDirectory);
-    for (const QString & location : locations) {
-        QDir dir(location);
-        const auto dirScripts = dir.entryInfoList({QStringLiteral("*.sh")});
+    auto locations = QStandardPaths::standardLocations(QStandardPaths::GenericConfigLocation);
+
+    //`standardLocations()` returns locations sorted by "order of priority". We iterate in reverse
+    // order so that high-priority scripts are sourced last and their modifications take precedence.
+    for (auto loc = locations.crbegin(); loc != locations.crend(); loc++) {
+        QDir dir(*loc);
+        if (! dir.cd(QStringLiteral("./plasma-workspace/env"))) {
+            // Skip location if plasma-workspace/env subdirectory does not exist
+            continue;
+        }
+        const auto dirScripts = dir.entryInfoList({QStringLiteral("*.sh")}, QDir::Files, QDir::Name);
         for (const auto script : dirScripts) {
             scripts << script.absoluteFilePath();
         }
@@ -230,6 +258,8 @@ void setupPlasmaEnvironment()
     qputenv("KDE_SESSION_VERSION", "5");
     qputenv("KDE_SESSION_UID", QByteArray::number(getuid()));
     qputenv("XDG_CURRENT_DESKTOP", "KDE");
+
+    qputenv("KDE_APPLICATIONS_AS_SCOPE", "1");
 }
 
 void setupX11()
@@ -315,7 +345,6 @@ QProcess* setupKSplash()
     return p;
 }
 
-
 void setupGSLib()
 // Get Ghostscript to look into user's KDE fonts dir for additional Fontmap
 {
@@ -327,23 +356,10 @@ void setupGSLib()
     }
 }
 
-bool startKDEInit()
+bool startPlasmaSession(bool wayland)
 {
-    // We set LD_BIND_NOW to increase the efficiency of kdeinit.
-    // kdeinit unsets this variable before loading applications.
-    const int exitCode = runSync(QStringLiteral(CMAKE_INSTALL_FULL_LIBEXECDIR_KF5 "/start_kdeinit_wrapper"), { QStringLiteral("--kded"), QStringLiteral("+kcminit_startup") }, { QStringLiteral("LD_BIND_NOW=true") });
-    if (exitCode != 0) {
-        messageBox(QStringLiteral("startkde: Could not start kdeinit5. Check your installation."));
-        return false;
-    }
-
     OrgKdeKSplashInterface iface(QStringLiteral("org.kde.KSplash"), QStringLiteral("/KSplash"), QDBusConnection::sessionBus());
     iface.setStage(QStringLiteral("kinit"));
-    return true;
-}
-
-bool startKSMServer(bool wayland)
-{
     // finally, give the session control to the session manager
     // see kdebase/ksmserver for the description of the rest of the startup sequence
     // if the KDEWM environment variable has been set, then it will be used as KDE's
@@ -358,26 +374,52 @@ bool startKSMServer(bool wayland)
     // lock now and do the rest of the KDE startup underneath the locker.
 
 
-    QStringList ksmserverOptions;
+    QStringList plasmaSessionOptions;
     if (wayland) {
-        ksmserverOptions << QStringLiteral("--no-lockscreen");
+        plasmaSessionOptions << QStringLiteral("--no-lockscreen");
     } else {
-        if (qEnvironmentVariableIsSet("KDEWM")) {
-            ksmserverOptions << QStringLiteral("--windowmanager") << qEnvironmentVariable("KDEWM");
-        }
         if (desktopLockedAtStart) {
-            ksmserverOptions << QStringLiteral("--lockscreen");
+            plasmaSessionOptions << QStringLiteral("--lockscreen");
         }
     }
 
-    const auto exitCode = runSync(QStringLiteral(CMAKE_INSTALL_FULL_BINDIR "/plasma_session"), ksmserverOptions);
+    bool rc = true;
+    QEventLoop e;
 
-    if (exitCode == 255) {
-        // Startup error
-        messageBox(QStringLiteral("startkde: Could not start ksmserver. Check your installation.\n"));
-        return false;
-    }
-    return true;
+    QProcess startPlasmaSession;
+    startPlasmaSession.setProcessChannelMode(QProcess::ForwardedChannels);
+
+    QDBusServiceWatcher serviceWatcher;
+    serviceWatcher.setConnection(QDBusConnection::sessionBus());
+
+    // We want to exit when both ksmserver and plasma-session-shutdown have finished
+    // This also closes if ksmserver crashes unexpectedly, as in those cases plasma-shutdown is not running
+    serviceWatcher.addWatchedService(QStringLiteral("org.kde.ksmserver"));
+    serviceWatcher.addWatchedService(QStringLiteral("org.kde.Shutdown"));
+    serviceWatcher.setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
+
+    QObject::connect(&startPlasmaSession, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), [&rc, &e](int exitCode, QProcess::ExitStatus) {
+        if (exitCode == 255) {
+            // Startup error
+            messageBox(QStringLiteral("startkde: Could not start ksmserver. Check your installation.\n"));
+            rc = false;
+            e.quit();
+        }
+    });
+
+    QObject::connect(&serviceWatcher, &QDBusServiceWatcher::serviceUnregistered, [&]() {
+        const QStringList watchedServices = serviceWatcher.watchedServices();
+        bool plasmaSessionRunning = std::any_of(watchedServices.constBegin(), watchedServices.constEnd(), [](const QString &service) {
+            return QDBusConnection::sessionBus().interface()->isServiceRegistered(service);
+        });
+        if (!plasmaSessionRunning) {
+            e.quit();
+        }
+    });
+
+    startPlasmaSession.start(QStringLiteral(CMAKE_INSTALL_FULL_BINDIR "/plasma_session"), plasmaSessionOptions);
+    e.exec();
+    return rc;
 }
 
 void waitForKonqi()

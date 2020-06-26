@@ -19,6 +19,7 @@
 
 #include "systemtray.h"
 #include "systemtraymodel.h"
+#include "sortedsystemtraymodel.h"
 #include "debug.h"
 
 #include <QDBusConnection>
@@ -42,19 +43,12 @@
 
 SystemTray::SystemTray(QObject *parent, const QVariantList &args)
     : Plasma::Containment(parent, args),
-      m_availablePlasmoidsModel(nullptr),
-      m_systemTrayModel(new SystemTrayModel(this))
+      m_systemTrayModel(nullptr),
+      m_sortedSystemTrayModel(nullptr),
+      m_configSystemTrayModel(nullptr)
 {
     setHasConfigurationInterface(true);
     setContainmentType(Plasma::Types::CustomEmbeddedContainment);
-
-    PlasmoidModel *currentPlasmoidsModel = new PlasmoidModel(m_systemTrayModel);
-    connect(this, &SystemTray::appletAdded, currentPlasmoidsModel, &PlasmoidModel::addApplet);
-    connect(this, &SystemTray::appletRemoved, currentPlasmoidsModel, &PlasmoidModel::removeApplet);
-    m_systemTrayModel->addSourceModel(currentPlasmoidsModel);
-
-    m_statusNotifierModel = new StatusNotifierModel(m_systemTrayModel);
-    m_systemTrayModel->addSourceModel(m_statusNotifierModel);
 }
 
 SystemTray::~SystemTray()
@@ -312,39 +306,47 @@ QPointF SystemTray::popupPosition(QQuickItem* visualParent, int x, int y)
     return pos;
 }
 
-void SystemTray::reorderItemBefore(QQuickItem* before, QQuickItem* after)
-{
-    if (!before || !after) {
-        return;
-    }
-
-    before->setVisible(false);
-    before->setParentItem(after->parentItem());
-    before->stackBefore(after);
-    before->setVisible(true);
-}
-
-void SystemTray::reorderItemAfter(QQuickItem* after, QQuickItem* before)
-{
-    if (!before || !after) {
-        return;
-    }
-
-    after->setVisible(false);
-    after->setParentItem(before->parentItem());
-    after->stackAfter(before);
-    after->setVisible(true);
-}
-
 bool SystemTray::isSystemTrayApplet(const QString &appletId)
 {
     return m_systrayApplets.contains(appletId);
 }
 
+Plasma::Service *SystemTray::serviceForSource(const QString &source)
+{
+    return m_statusNotifierModel->serviceForSource(source);
+}
+
 void SystemTray::restoreContents(KConfigGroup &group)
 {
-    Q_UNUSED(group);
-    //NOTE: RestoreContents shouldn't do anything here because is too soon, so have an empty reimplementation
+    QStringList newKnownItems;
+    QStringList newExtraItems;
+
+    KConfigGroup general = group.group("General");
+
+    QStringList knownItems = general.readEntry("knownItems", QStringList());
+    QStringList extraItems = general.readEntry("extraItems", QStringList());
+
+    //Add every plasmoid that is both not enabled explicitly and not already known
+    for (int i = 0; i < m_defaultPlasmoids.length(); ++i) {
+        QString candidate = m_defaultPlasmoids[i];
+        if (!knownItems.contains(candidate)) {
+            newKnownItems.append(candidate);
+            if (!extraItems.contains(candidate)) {
+                newExtraItems.append(candidate);
+            }
+        }
+    }
+
+    if (newExtraItems.length() > 0) {
+        general.writeEntry("extraItems", extraItems + newExtraItems);
+    }
+    if (newKnownItems.length() > 0) {
+        general.writeEntry("knownItems", knownItems + newKnownItems);
+    }
+
+    setAllowedPlasmoids(general.readEntry("extraItems", QStringList()));
+
+    emit configurationChanged(config());
 }
 
 void SystemTray::restorePlasmoids()
@@ -385,8 +387,6 @@ void SystemTray::restorePlasmoids()
             m_knownPlugins[plugin] = group.toInt();
         }
     }
-
-    QStringList ownApplets;
 
     QMap<QString, KPluginMetaData> sortedApplets;
     for (auto it = m_systrayApplets.constBegin(); it != m_systrayApplets.constEnd(); ++it) {
@@ -429,22 +429,53 @@ void SystemTray::restorePlasmoids()
     initDBusActivatables();
 }
 
-QAbstractItemModel *SystemTray::systemTrayModel()
+void SystemTray::configChanged()
 {
+    Containment::configChanged();
+    emit configurationChanged(config());
+}
+
+SystemTrayModel *SystemTray::systemTrayModel()
+{
+    if (!m_systemTrayModel) {
+        m_systemTrayModel = new SystemTrayModel(this);
+
+        PlasmoidModel *currentPlasmoidsModel = new PlasmoidModel(m_systemTrayModel);
+        connect(this, &SystemTray::appletAdded, currentPlasmoidsModel, &PlasmoidModel::addApplet);
+        connect(this, &SystemTray::appletRemoved, currentPlasmoidsModel, &PlasmoidModel::removeApplet);
+        connect(this, &SystemTray::configurationChanged, currentPlasmoidsModel, &PlasmoidModel::onConfigurationChanged);
+        currentPlasmoidsModel->onConfigurationChanged(this->config());
+        for (auto applet : applets()) {
+            currentPlasmoidsModel->addApplet(applet);
+        }
+
+        m_statusNotifierModel = new StatusNotifierModel(m_systemTrayModel);
+        connect(this, &SystemTray::configurationChanged, m_statusNotifierModel, &StatusNotifierModel::onConfigurationChanged);
+        m_statusNotifierModel->onConfigurationChanged(this->config());
+
+        m_systemTrayModel->addSourceModel(currentPlasmoidsModel);
+        m_systemTrayModel->addSourceModel(m_statusNotifierModel);
+    }
+
     return m_systemTrayModel;
 }
 
-QStringList SystemTray::defaultPlasmoids() const
+QAbstractItemModel *SystemTray::sortedSystemTrayModel()
 {
-    return m_defaultPlasmoids;
+    if (!m_sortedSystemTrayModel) {
+        m_sortedSystemTrayModel = new SortedSystemTrayModel(SortedSystemTrayModel::SortingType::SystemTray, this);
+        m_sortedSystemTrayModel->setSourceModel(systemTrayModel());
+    }
+    return m_sortedSystemTrayModel;
 }
 
-QAbstractItemModel* SystemTray::availablePlasmoids()
+QAbstractItemModel *SystemTray::configSystemTrayModel()
 {
-    if (!m_availablePlasmoidsModel) {
-        m_availablePlasmoidsModel = new PlasmoidModel(this);
+    if (!m_configSystemTrayModel) {
+        m_configSystemTrayModel = new SortedSystemTrayModel(SortedSystemTrayModel::SortingType::ConfigurationPage, this);
+        m_configSystemTrayModel->setSourceModel(systemTrayModel());
     }
-    return m_availablePlasmoidsModel;
+    return m_configSystemTrayModel;
 }
 
 QStringList SystemTray::allowedPlasmoids() const
@@ -466,6 +497,34 @@ void SystemTray::setAllowedPlasmoids(const QStringList &allowed)
 
 void SystemTray::initDBusActivatables()
 {
+    // Watch for new services
+    // We need to watch for all of new services here, since we want to "match" the names,
+    // not just compare them
+    // This makes mpris work, since it wants to match org.mpris.MediaPlayer2.dragonplayer
+    // against org.mpris.MediaPlayer2
+    // QDBusServiceWatcher is not capable for watching wildcard service right now
+    // See:
+    // https://bugreports.qt.io/browse/QTBUG-51683
+    // https://bugreports.qt.io/browse/QTBUG-33829
+    // This is fixed in Qt 5.15
+
+    // order of events has to be:
+    //  - create a match rule for new servies on DBus daemon
+    //  - start fetching a list of names
+    //  - ignore all changes that happen in the meantime
+    //  - handle the list of all names
+    connect(QDBusConnection::sessionBus().interface(), &QDBusConnectionInterface::serviceOwnerChanged, this, [=](const QString &serviceName, const QString &oldOwner, const QString &newOwner) {
+        if (!m_dbusSessionServiceNamesFetched) {
+            return;
+        }
+        serviceOwnerChanged(serviceName, oldOwner, newOwner);
+    });
+    connect(QDBusConnection::systemBus().interface(), &QDBusConnectionInterface::serviceOwnerChanged, this, [=](const QString &serviceName, const QString &oldOwner, const QString &newOwner) {
+        if (!m_dbusSystemServiceNamesFetched) {
+            return;
+        }
+        serviceOwnerChanged(serviceName, oldOwner, newOwner);
+    });
     /* Loading and unloading Plasmoids when dbus services come and go
      *
      * This works as follows:
@@ -477,20 +536,20 @@ void SystemTray::initDBusActivatables()
      */
     QDBusPendingCall async = QDBusConnection::sessionBus().interface()->asyncCall(QStringLiteral("ListNames"));
     QDBusPendingCallWatcher *callWatcher = new QDBusPendingCallWatcher(async, this);
-    connect(callWatcher, &QDBusPendingCallWatcher::finished,
-            [=](QDBusPendingCallWatcher *callWatcher){
-                SystemTray::serviceNameFetchFinished(callWatcher, QDBusConnection::sessionBus());
-            });
+    connect(callWatcher, &QDBusPendingCallWatcher::finished, [=](QDBusPendingCallWatcher *callWatcher) {
+        serviceNameFetchFinished(callWatcher);
+        m_dbusSessionServiceNamesFetched = true;
+    });
 
     QDBusPendingCall systemAsync = QDBusConnection::systemBus().interface()->asyncCall(QStringLiteral("ListNames"));
     QDBusPendingCallWatcher *systemCallWatcher = new QDBusPendingCallWatcher(systemAsync, this);
-    connect(systemCallWatcher, &QDBusPendingCallWatcher::finished,
-            [=](QDBusPendingCallWatcher *callWatcher){
-                SystemTray::serviceNameFetchFinished(callWatcher, QDBusConnection::systemBus());
-            });
+    connect(systemCallWatcher, &QDBusPendingCallWatcher::finished, [=](QDBusPendingCallWatcher *callWatcher) {
+        serviceNameFetchFinished(callWatcher);
+        m_dbusSystemServiceNamesFetched = true;
+    });
 }
 
-void SystemTray::serviceNameFetchFinished(QDBusPendingCallWatcher* watcher, const QDBusConnection &connection)
+void SystemTray::serviceNameFetchFinished(QDBusPendingCallWatcher* watcher)
 {
     QDBusPendingReply<QStringList> propsReply = *watcher;
     watcher->deleteLater();
@@ -503,17 +562,6 @@ void SystemTray::serviceNameFetchFinished(QDBusPendingCallWatcher* watcher, cons
             serviceRegistered(serviceName);
         }
     }
-
-    // Watch for new services
-    // We need to watch for all of new services here, since we want to "match" the names,
-    // not just compare them
-    // This makes mpris work, since it wants to match org.mpris.MediaPlayer2.dragonplayer
-    // against org.mpris.MediaPlayer2
-    // QDBusServiceWatcher is not capable for watching wildcard service right now
-    // See:
-    // https://bugreports.qt.io/browse/QTBUG-51683
-    // https://bugreports.qt.io/browse/QTBUG-33829
-    connect(connection.interface(), &QDBusConnectionInterface::serviceOwnerChanged, this, &SystemTray::serviceOwnerChanged);
 }
 
 void SystemTray::serviceOwnerChanged(const QString &serviceName, const QString &oldOwner, const QString &newOwner)

@@ -29,6 +29,108 @@
 
 #include <KLocalizedString>
 
+BaseModel::BaseModel(QObject *parent)
+    : QStandardItemModel(parent),
+      m_showAllItems(false)
+{
+    connect(this, &BaseModel::rowsInserted, this, &BaseModel::onRowsInserted);
+    connect(this, &BaseModel::dataChanged, this, &BaseModel::onDataChanged);
+}
+
+QHash<int, QByteArray> BaseModel::roleNames() const
+{
+    QHash<int, QByteArray> roles = QStandardItemModel::roleNames();
+
+    roles.insert(static_cast<int>(BaseRole::ItemType), QByteArrayLiteral("itemType"));
+    roles.insert(static_cast<int>(BaseRole::ItemId), QByteArrayLiteral("itemId"));
+    roles.insert(static_cast<int>(BaseRole::CanRender), QByteArrayLiteral("canRender"));
+    roles.insert(static_cast<int>(BaseRole::Category), QByteArrayLiteral("category"));
+    roles.insert(static_cast<int>(BaseRole::Status), QByteArrayLiteral("status"));
+    roles.insert(static_cast<int>(BaseRole::EffectiveStatus), QByteArrayLiteral("effectiveStatus"));
+
+    return roles;
+}
+
+void BaseModel::onConfigurationChanged(const KConfigGroup &config)
+{
+    if (!config.isValid()) {
+        return;
+    }
+
+    const KConfigGroup generalGroup = config.group("General");
+
+    m_showAllItems = generalGroup.readEntry("showAllItems", false);
+    m_shownItems = generalGroup.readEntry("shownItems", QStringList());
+    m_hiddenItems = generalGroup.readEntry("hiddenItems", QStringList());
+
+    for (int i = 0; i < rowCount(); i++) {
+        QStandardItem *dataItem = item(i);
+        updateEffectiveStatus(dataItem);
+    }
+}
+
+void BaseModel::onRowsInserted(const QModelIndex &parent, int first, int last)
+{
+    if (parent.isValid()) {
+        return;
+    }
+
+    for (int i = first; i <= last; ++i) {
+        QStandardItem *dataItem = item(i);
+        updateEffectiveStatus(dataItem);
+    }
+}
+
+void BaseModel::onDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles)
+{
+    if (roles.contains(static_cast<int>(BaseRole::Status)) || roles.contains(static_cast<int>(BaseRole::CanRender))) {
+        for (int i = topLeft.row(); i <= bottomRight.row(); i++) {
+            QStandardItem *dataItem = item(i);
+            updateEffectiveStatus(dataItem);
+        }
+    }
+}
+
+void BaseModel::updateEffectiveStatus(QStandardItem *dataItem)
+{
+    Plasma::Types::ItemStatus status = calculateEffectiveStatus(dataItem);
+    dataItem->setData(status, static_cast<int>(BaseModel::BaseRole::EffectiveStatus));
+}
+
+Plasma::Types::ItemStatus BaseModel::calculateEffectiveStatus(QStandardItem *dataItem)
+{
+    bool canRender = dataItem->data(static_cast<int>(BaseRole::CanRender)).toBool();
+    if (!canRender) {
+        return Plasma::Types::ItemStatus::HiddenStatus;
+    }
+
+    Plasma::Types::ItemStatus status = readStatus(dataItem);
+    if (status == Plasma::Types::ItemStatus::HiddenStatus) {
+        return Plasma::Types::ItemStatus::HiddenStatus;
+    }
+
+    QString itemId = dataItem->data(static_cast<int>(BaseRole::ItemId)).toString();
+
+    bool forcedShown = m_showAllItems || m_shownItems.contains(itemId);
+    bool forcedHidden = m_hiddenItems.contains(itemId);
+
+    if (forcedShown || (!forcedHidden && status != Plasma::Types::ItemStatus::PassiveStatus)) {
+        return Plasma::Types::ItemStatus::ActiveStatus;
+    } else {
+        return Plasma::Types::ItemStatus::PassiveStatus;
+    }
+}
+
+Plasma::Types::ItemStatus BaseModel::readStatus(QStandardItem *dataItem) const
+{
+    QVariant statusData = dataItem->data(static_cast<int>(BaseRole::Status));
+    if (statusData.isValid()) {
+        return statusData.value<Plasma::Types::ItemStatus>();
+    } else {
+        return Plasma::Types::ItemStatus::UnknownStatus;
+    }
+}
+
 static QString plasmoidCategoryForMetadata(const KPluginMetaData &metadata)
 {
     QString category = QStringLiteral("UnknownCategory");
@@ -43,7 +145,7 @@ static QString plasmoidCategoryForMetadata(const KPluginMetaData &metadata)
     return category;
 }
 
-PlasmoidModel::PlasmoidModel(QObject *parent) : QStandardItemModel(parent)
+PlasmoidModel::PlasmoidModel(QObject *parent) : BaseModel(parent)
 {
     for (const auto &info : Plasma::PluginLoader::self()->listAppletMetaData(QString())) {
         if (!info.isValid() || info.value(QStringLiteral("X-Plasma-NotificationArea")) != "true") {
@@ -51,31 +153,23 @@ PlasmoidModel::PlasmoidModel(QObject *parent) : QStandardItemModel(parent)
         }
 
         QString name = info.name();
-        const QString dbusactivation =
-                info.rawData().value(QStringLiteral("X-Plasma-DBusActivationService")).toString();
-
+        const QString dbusactivation = info.value(QStringLiteral("X-Plasma-DBusActivationService"));
         if (!dbusactivation.isEmpty()) {
             name += i18n(" (Automatic load)");
         }
         QStandardItem *item = new QStandardItem(QIcon::fromTheme(info.iconName()), name);
-        item->setData(info.pluginId(), static_cast<int>(BaseRole::ItemId));
-        item->setData(QStringLiteral("Plasmoid"), static_cast<int>(BaseRole::ItemType));
-        item->setData(false, static_cast<int>(BaseRole::CanRender));
-        item->setData(plasmoidCategoryForMetadata(info), static_cast<int>(BaseRole::Category));
+        item->setData(info.pluginId(), static_cast<int>(BaseModel::BaseRole::ItemId));
+        item->setData(QStringLiteral("Plasmoid"), static_cast<int>(BaseModel::BaseRole::ItemType));
+        item->setData(false, static_cast<int>(BaseModel::BaseRole::CanRender));
+        item->setData(plasmoidCategoryForMetadata(info), static_cast<int>(BaseModel::BaseRole::Category));
         item->setData(false, static_cast<int>(Role::HasApplet));
         appendRow(item);
     }
-    sort(0);
 }
 
 QHash<int, QByteArray> PlasmoidModel::roleNames() const
 {
-    QHash<int, QByteArray> roles = QStandardItemModel::roleNames();
-
-    roles.insert(static_cast<int>(BaseRole::ItemType), QByteArrayLiteral("itemType"));
-    roles.insert(static_cast<int>(BaseRole::ItemId), QByteArrayLiteral("itemId"));
-    roles.insert(static_cast<int>(BaseRole::CanRender), QByteArrayLiteral("canRender"));
-    roles.insert(static_cast<int>(BaseRole::Category), QByteArrayLiteral("category"));
+    QHash<int, QByteArray> roles = BaseModel::roleNames();
 
     roles.insert(static_cast<int>(Role::Applet), QByteArrayLiteral("applet"));
     roles.insert(static_cast<int>(Role::HasApplet), QByteArrayLiteral("hasApplet"));
@@ -85,26 +179,38 @@ QHash<int, QByteArray> PlasmoidModel::roleNames() const
 
 void PlasmoidModel::addApplet(Plasma::Applet *applet)
 {
-    auto info = applet->pluginMetaData();
+    auto pluginMetaData = applet->pluginMetaData();
     QStandardItem *dataItem = nullptr;
     for (int i = 0; i < rowCount(); i++) {
         QStandardItem *currentItem = item(i);
-        if (currentItem->data(static_cast<int>(BaseRole::ItemId)) == info.pluginId()) {
+        if (currentItem->data(static_cast<int>(BaseModel::BaseRole::ItemId)) == pluginMetaData.pluginId()) {
             dataItem = currentItem;
             break;
         }
     }
 
     if (!dataItem) {
-        dataItem = new QStandardItem(QIcon::fromTheme(info.iconName()), info.name());
+        QString name = pluginMetaData.name();
+        const QString dbusactivation = pluginMetaData.value(QStringLiteral("X-Plasma-DBusActivationService"));
+        if (!dbusactivation.isEmpty()) {
+            name += i18n(" (Automatic load)");
+        }
+        dataItem = new QStandardItem(QIcon::fromTheme(pluginMetaData.iconName()), name);
         appendRow(dataItem);
     }
 
-    dataItem->setData(info.pluginId(), static_cast<int>(BaseRole::ItemId));
+    dataItem->setData(pluginMetaData.pluginId(), static_cast<int>(BaseModel::BaseRole::ItemId));
+    dataItem->setData(plasmoidCategoryForMetadata(pluginMetaData), static_cast<int>(BaseModel::BaseRole::Category));
+    dataItem->setData(applet->status(), static_cast<int>(BaseModel::BaseRole::Status));
+    connect(applet, &Plasma::Applet::statusChanged, this, [dataItem] (Plasma::Types::ItemStatus status) {
+        dataItem->setData(status, static_cast<int>(BaseModel::BaseRole::Status));
+    });
+
     dataItem->setData(applet->property("_plasma_graphicObject"), static_cast<int>(Role::Applet));
     dataItem->setData(true, static_cast<int>(Role::HasApplet));
-    dataItem->setData(true, static_cast<int>(BaseRole::CanRender));
-    dataItem->setData(plasmoidCategoryForMetadata(applet->pluginMetaData()), static_cast<int>(BaseRole::Category));
+
+    // CanRender has to be the last one
+    dataItem->setData(true, static_cast<int>(BaseModel::BaseRole::CanRender));
 }
 
 void PlasmoidModel::removeApplet(Plasma::Applet *applet)
@@ -112,17 +218,18 @@ void PlasmoidModel::removeApplet(Plasma::Applet *applet)
     int rows = rowCount();
     for (int i = 0; i < rows; i++) {
         QStandardItem *currentItem = item(i);
-        QVariant plugin = currentItem->data(static_cast<int>(BaseRole::ItemId));
+        QVariant plugin = currentItem->data(static_cast<int>(BaseModel::BaseRole::ItemId));
         if (plugin.isValid() && plugin.value<QString>() == applet->pluginMetaData().pluginId()) {
-            currentItem->setData(false, static_cast<int>(BaseRole::CanRender));
+            currentItem->setData(false, static_cast<int>(BaseModel::BaseRole::CanRender));
             currentItem->setData(QVariant(), static_cast<int>(Role::Applet));
             currentItem->setData(false, static_cast<int>(Role::HasApplet));
+            applet->disconnect(this);
             return;
         }
     }
 }
 
-StatusNotifierModel::StatusNotifierModel(QObject *parent) : QStandardItemModel(parent)
+StatusNotifierModel::StatusNotifierModel(QObject *parent) : BaseModel(parent)
 {
     m_dataEngine = dataEngine(QStringLiteral("statusnotifieritem"));
 
@@ -134,12 +241,7 @@ StatusNotifierModel::StatusNotifierModel(QObject *parent) : QStandardItemModel(p
 
 QHash<int, QByteArray> StatusNotifierModel::roleNames() const
 {
-    QHash<int, QByteArray> roles = QStandardItemModel::roleNames();
-
-    roles.insert(static_cast<int>(BaseRole::ItemType), QByteArrayLiteral("itemType"));
-    roles.insert(static_cast<int>(BaseRole::ItemId), QByteArrayLiteral("itemId"));
-    roles.insert(static_cast<int>(BaseRole::CanRender), QByteArrayLiteral("canRender"));
-    roles.insert(static_cast<int>(BaseRole::Category), QByteArrayLiteral("category"));
+    QHash<int, QByteArray> roles = BaseModel::roleNames();
 
     roles.insert(static_cast<int>(Role::DataEngineSource), QByteArrayLiteral("DataEngineSource"));
     roles.insert(static_cast<int>(Role::AttentionIcon), QByteArrayLiteral("AttentionIcon"));
@@ -158,7 +260,6 @@ QHash<int, QByteArray> StatusNotifierModel::roleNames() const
     roles.insert(static_cast<int>(Role::Title), QByteArrayLiteral("Title"));
     roles.insert(static_cast<int>(Role::TitleChanged), QByteArrayLiteral("TitleChanged"));
     roles.insert(static_cast<int>(Role::ToolTipChanged), QByteArrayLiteral("ToolTipChanged"));
-    roles.insert(static_cast<int>(Role::ToolTipIcon), QByteArrayLiteral("ToolTipIcon"));
     roles.insert(static_cast<int>(Role::ToolTipSubTitle), QByteArrayLiteral("ToolTipSubTitle"));
     roles.insert(static_cast<int>(Role::ToolTipTitle), QByteArrayLiteral("ToolTipTitle"));
     roles.insert(static_cast<int>(Role::WindowId), QByteArrayLiteral("WindowId"));
@@ -207,27 +308,45 @@ void StatusNotifierModel::dataUpdated(const QString &sourceName, const Plasma::D
         dataItem = item(m_sources.indexOf(sourceName));
     } else {
         dataItem = new QStandardItem();
-        dataItem->setData(QStringLiteral("StatusNotifier"), static_cast<int>(BaseRole::ItemType));
-        dataItem->setData(true, static_cast<int>(BaseRole::CanRender));
+        dataItem->setData(QStringLiteral("StatusNotifier"), static_cast<int>(BaseModel::BaseRole::ItemType));
+        dataItem->setData(true, static_cast<int>(BaseModel::BaseRole::CanRender));
     }
 
     dataItem->setData(data.value("Title"), Qt::DisplayRole);
     QVariant icon = data.value("Icon");
     if (icon.isValid() && icon.canConvert<QIcon>() && !icon.value<QIcon>().isNull()) {
         dataItem->setData(icon, Qt::DecorationRole);
+        dataItem->setData(icon, static_cast<int>(Role::Icon));
     } else {
         dataItem->setData(data.value("IconName"), Qt::DecorationRole);
+        dataItem->setData(QVariant(), static_cast<int>(Role::Icon));
+    }
+    QVariant attentionIcon = data.value("AttentionIcon");
+    if (attentionIcon.isValid() && attentionIcon.canConvert<QIcon>() && !attentionIcon.value<QIcon>().isNull()) {
+        dataItem->setData(attentionIcon, static_cast<int>(Role::AttentionIcon));
+    } else {
+        dataItem->setData(QVariant(), static_cast<int>(Role::AttentionIcon));
     }
 
-    dataItem->setData(data.value("Id"), static_cast<int>(BaseRole::ItemId));
-    dataItem->setData(data.value("Category"), static_cast<int>(BaseRole::Category));
+    dataItem->setData(data.value("Id"), static_cast<int>(BaseModel::BaseRole::ItemId));
+    QVariant category = data.value("Category");
+    dataItem->setData(category.isNull() ? QStringLiteral("UnknownCategory") : data.value("Category"), static_cast<int>(BaseModel::BaseRole::Category));
+
+    QString status = data.value("Status").toString();
+    if (status == QLatin1String("Active")) {
+        dataItem->setData(Plasma::Types::ItemStatus::ActiveStatus, static_cast<int>(BaseModel::BaseRole::Status));
+    } else if (status == QLatin1String("NeedsAttention")) {
+        dataItem->setData(Plasma::Types::ItemStatus::NeedsAttentionStatus, static_cast<int>(BaseModel::BaseRole::Status));
+    } else if (status == QLatin1String("Passive")) {
+        dataItem->setData(Plasma::Types::ItemStatus::PassiveStatus, static_cast<int>(BaseModel::BaseRole::Status));
+    } else {
+        dataItem->setData(Plasma::Types::ItemStatus::UnknownStatus, static_cast<int>(BaseModel::BaseRole::Status));
+    }
 
     dataItem->setData(sourceName, static_cast<int>(Role::DataEngineSource));
-    updateItemData(dataItem, data, Role::AttentionIcon);
     updateItemData(dataItem, data, Role::AttentionIconName);
     updateItemData(dataItem, data, Role::AttentionMovieName);
     updateItemData(dataItem, data, Role::Category);
-    updateItemData(dataItem, data, Role::Icon);
     updateItemData(dataItem, data, Role::IconName);
     updateItemData(dataItem, data, Role::IconThemePath);
     updateItemData(dataItem, data, Role::IconsChanged);
@@ -239,7 +358,6 @@ void StatusNotifierModel::dataUpdated(const QString &sourceName, const Plasma::D
     updateItemData(dataItem, data, Role::Title);
     updateItemData(dataItem, data, Role::TitleChanged);
     updateItemData(dataItem, data, Role::ToolTipChanged);
-    updateItemData(dataItem, data, Role::ToolTipIcon);
     updateItemData(dataItem, data, Role::ToolTipSubTitle);
     updateItemData(dataItem, data, Role::ToolTipTitle);
     updateItemData(dataItem, data, Role::WindowId);

@@ -28,7 +28,7 @@
 /**
  * This class looks for matches in the set of .desktop files installed by
  * applications. This way the user can type exactly what they see in the
- * appications menu and have it start the appropriate app. Essentially anything
+ * applications menu and have it start the appropriate app. Essentially anything
  * that KService knows about, this runner can launch
  */
 
@@ -41,7 +41,7 @@ class ServiceRunner : public Plasma::AbstractRunner
         ~ServiceRunner() override;
 
         void match(Plasma::RunnerContext &context) override;
-        void run(const Plasma::RunnerContext &context, const Plasma::QueryMatch &action) override;
+        void run(const Plasma::RunnerContext &context, const Plasma::QueryMatch &match) override;
         QStringList categories() const override;
         QIcon categoryIcon(const QString& category) const override;
 

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 
 project(plasma-workspace)
-set(PROJECT_VERSION "5.18.3")
+set(PROJECT_VERSION "5.19.2")
 set(PROJECT_VERSION_MAJOR 5)
 
-set(QT_MIN_VERSION "5.12.0")
-set(KF5_MIN_VERSION "5.66.0")
+set(QT_MIN_VERSION "5.14.0")
+set(KF5_MIN_VERSION "5.70.0")
 set(INSTALL_SDDM_THEME TRUE)
 find_package(Qt5 ${QT_MIN_VERSION} CONFIG REQUIRED COMPONENTS Widgets Quick QuickWidgets Concurrent Test Network)
 find_package(ECM ${KF5_MIN_VERSION} REQUIRED NO_MODULE)
@@ -26,9 +26,9 @@ include(KDEPackageAppTemplates)
 include(KDEClangFormat)
 
 find_package(KF5 ${KF5_MIN_VERSION} REQUIRED COMPONENTS
-                    Plasma DocTools Runner NotifyConfig Su NewStuff Wallet
+                    Plasma DocTools Runner Notifications NotifyConfig Su NewStuff Wallet
                     IdleTime Declarative I18n KCMUtils TextWidgets KDELibs4Support Crash GlobalAccel
-                    DBusAddons Wayland CoreAddons People ActivitiesStats)
+                    DBusAddons Wayland CoreAddons People ActivitiesStats KIO)
 find_package(KDED CONFIG REQUIRED)
 
 find_package(KF5NetworkManagerQt ${KF5_MIN_VERSION})
@@ -52,7 +52,7 @@ set_package_properties(KF5QuickCharts PROPERTIES
 # WARNING PlasmaQuick provides unversioned CMake config
 find_package(KUserFeedback)
 find_package(KF5 REQUIRED COMPONENTS PlasmaQuick)
-find_package(KF5 REQUIRED COMPONENTS SysGuard)
+find_package(KSysGuard CONFIG REQUIRED)
 find_package(KF5 REQUIRED COMPONENTS Package)
 
 find_package(KF5Baloo)

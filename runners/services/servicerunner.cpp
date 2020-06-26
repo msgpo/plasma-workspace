@@ -20,6 +20,8 @@
 
 #include "servicerunner.h"
 
+#include <algorithm>
+
 #include <QMimeData>
 
 #include <QDebug>
@@ -30,10 +32,13 @@
 
 #include <KActivities/ResourceInstance>
 #include <KLocalizedString>
-#include <KRun>
+#include <KNotificationJobUiDelegate>
 #include <KService>
+#include <KServiceAction>
 #include <KServiceTypeTrader>
 #include <KStringHandler>
+
+#include <KIO/ApplicationLauncherJob>
 
 #include "debug.h"
 
@@ -105,27 +110,27 @@ private:
         return ret;
     }
 
-    qreal increaseMatchRelavance(const KService::Ptr &service, QVector<QStringRef> &strList, QString category)
+    qreal increaseMatchRelavance(const KService::Ptr &service, const QVector<QStringRef> &strList, const QString &category)
     {
         //Increment the relevance based on all the words (other than the first) of the query list
         qreal relevanceIncrement = 0;
 
-        for(int i=1; i<strList.size(); i++)
-        {
+        for(int i = 1; i < strList.size(); ++i) {
+            const auto &str = strList.at(i);
             if (category == QLatin1String("Name")) {
-                if (service->name().contains(strList[i], Qt::CaseInsensitive)) {
+                if (service->name().contains(str, Qt::CaseInsensitive)) {
                     relevanceIncrement += 0.01;
                 }
             } else if (category == QLatin1String("GenericName")) {
-                if (service->genericName().contains(strList[i], Qt::CaseInsensitive)) {
+                if (service->genericName().contains(str, Qt::CaseInsensitive)) {
                     relevanceIncrement += 0.01;
                 }
             } else if (category == QLatin1String("Exec")) {
-                if (service->exec().contains(strList[i], Qt::CaseInsensitive)) {
+                if (service->exec().contains(str, Qt::CaseInsensitive)) {
                     relevanceIncrement += 0.01;
                 }
             } else if (category == QLatin1String("Comment")) {
-                if (service->comment().contains(strList[i], Qt::CaseInsensitive)) {
+                if (service->comment().contains(str, Qt::CaseInsensitive)) {
                     relevanceIncrement += 0.01;
                 }
             }
@@ -167,7 +172,10 @@ private:
         const QString name = service->name();
 
         match.setText(name);
-        match.setData(service->storageId());
+
+        QUrl url(service->storageId());
+        url.setScheme(QStringLiteral("applications"));
+        match.setData(url);
 
         if (!service->genericName().isEmpty() && service->genericName() != name) {
             match.setSubtext(service->genericName());
@@ -286,7 +294,11 @@ private:
             qCDebug(RUNNER_SERVICES) << service->name() << "is this relevant:" << relevance;
             match.setRelevance(relevance);
             if (service->serviceTypes().contains(QLatin1String("KCModule"))) {
-                match.setMatchCategory(i18n("System Settings"));
+                if (service->parentApp() == QStringLiteral("kinfocenter")) {
+                    match.setMatchCategory(i18n("System Information"));
+                } else {
+                    match.setMatchCategory(i18n("System Settings"));
+                }
             }
             matches << match;
         }
@@ -337,7 +349,8 @@ private:
                 continue;
             }
 
-            for (const KServiceAction &action : service->actions()) {
+            const auto actions = service->actions();
+            for (const KServiceAction &action : actions) {
                 if (action.text().isEmpty() || action.exec().isEmpty() || hasSeen(action)) {
                     continue;
                 }
@@ -357,7 +370,15 @@ private:
                 }
                 match.setText(i18nc("Jump list search result, %1 is action (eg. open new tab), %2 is application (eg. browser)",
                                     "%1 - %2", action.text(), service->name()));
-                match.setData(QStringLiteral("exec::") + action.exec());
+
+                QUrl url(service->storageId());
+                url.setScheme(QStringLiteral("applications"));
+
+                QUrlQuery query;
+                query.addQueryItem(QStringLiteral("action"), action.name());
+                url.setQuery(query);
+
+                match.setData(url);
 
                 qreal relevance = 0.5;
                 if (matchIndex == 0) {
@@ -377,7 +398,7 @@ private:
     QList<Plasma::QueryMatch> matches;
     QString query;
     QString term;
-    int weightedTermLength;
+    int weightedTermLength = -1;
 };
 
 ServiceRunner::ServiceRunner(QObject *parent, const QVariantList &args)
@@ -391,9 +412,7 @@ ServiceRunner::ServiceRunner(QObject *parent, const QVariantList &args)
     addSyntax(Plasma::RunnerSyntax(QStringLiteral(":q:"), i18n("Finds applications whose name or description match :q:")));
 }
 
-ServiceRunner::~ServiceRunner()
-{
-}
+ServiceRunner::~ServiceRunner() = default;
 
 QStringList ServiceRunner::categories() const
 {
@@ -427,46 +446,74 @@ void ServiceRunner::run(const Plasma::RunnerContext &context, const Plasma::Quer
 {
     Q_UNUSED(context);
 
-    const QString dataString = match.data().toString();
+    const QUrl dataUrl = match.data().toUrl();
 
-    const QString execPrefix = QStringLiteral("exec::");
-    if (dataString.startsWith(execPrefix)) {
-         KRun::run(dataString.mid(execPrefix.length()), {}, nullptr);
-         return;
+    KService::Ptr service = KService::serviceByStorageId(dataUrl.path());
+    if (!service) {
+        return;
     }
 
-    KService::Ptr service = KService::serviceByStorageId(dataString);
-    if (service) {
-        KActivities::ResourceInstance::notifyAccessed(
-            QUrl(QStringLiteral("applications:") + service->storageId()),
-            QStringLiteral("org.kde.krunner")
-        );
+    KActivities::ResourceInstance::notifyAccessed(
+        QUrl(QStringLiteral("applications:") + service->storageId()),
+        QStringLiteral("org.kde.krunner")
+    );
 
-        KRun::runService(*service, {}, nullptr, true);
+    KIO::ApplicationLauncherJob *job = nullptr;
+
+    const QString actionName = QUrlQuery(dataUrl).queryItemValue(QStringLiteral("action"));
+    if (actionName.isEmpty()) {
+        // We want to load kcms directly with systemsettings,
+        // but we can't completely replace kcmshell with systemsettings
+        // as we need to be able to load kcms without plasma and we can't 
+        // implement all kcmshell features into systemsettings
+        if (service->serviceTypes().contains(QLatin1String("KCModule"))) {
+            if (service->parentApp() == QStringLiteral("kinfocenter")) {
+                service->setExec(QStringLiteral("kinfocenter ") + service->desktopEntryName());
+            } else {
+                service->setExec(QStringLiteral("systemsettings5 ") + service->desktopEntryName());
+            }
+        }
+        job = new KIO::ApplicationLauncherJob(service);
+    } else {
+        const auto actions = service->actions();
+        auto it = std::find_if(actions.begin(), actions.end(), [&actionName](const KServiceAction &action) {
+            return action.name() == actionName;
+        });
+        Q_ASSERT(it != actions.end());
+
+        job = new KIO::ApplicationLauncherJob(*it);
     }
+
+    auto *delegate = new KNotificationJobUiDelegate;
+    delegate->setAutoErrorHandlingEnabled(true);
+    job->setUiDelegate(delegate);
+    job->start();
 }
 
 QMimeData * ServiceRunner::mimeDataForMatch(const Plasma::QueryMatch &match)
 {
-    KService::Ptr service = KService::serviceByStorageId(match.data().toString());
+    const QUrl dataUrl = match.data().toUrl();
+
+    const QString actionName = QUrlQuery(dataUrl).queryItemValue(QStringLiteral("action"));
+    if (!actionName.isEmpty()) {
+        return nullptr;
+    }
+
+    KService::Ptr service = KService::serviceByStorageId(dataUrl.path());
     if (!service) {
         return nullptr;
     }
 
     QString path = service->entryPath();
     if (!QDir::isAbsolutePath(path)) {
-        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QLatin1String("kservices5/") + path);
+        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("kservices5/") + path);
     }
 
     if (path.isEmpty()) {
         return nullptr;
     }
 
-    QMimeData *data = new QMimeData();
+    auto *data = new QMimeData();
     data->setUrls(QList<QUrl>{QUrl::fromLocalFile(path)});
     return data;
 }
-
-K_EXPORT_PLASMA_RUNNER(services, ServiceRunner)
-
-#include "servicerunner.moc"

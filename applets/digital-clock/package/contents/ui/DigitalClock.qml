@@ -113,7 +113,8 @@ Item {
                 target: contentItem
 
                 height: timeLabel.height + (main.showDate || timezoneLabel.visible ? 0.8 * timeLabel.height : 0)
-                width: Math.max(labelsGrid.width, timezoneLabel.paintedWidth, dateLabel.paintedWidth)
+                width: Math.max(timeLabel.paintedWidth + (main.showDate ? timezoneLabel.paintedWidth : 0), 
+                                timezoneLabel.paintedWidth, dateLabel.paintedWidth) + units.smallSpacing * 2
             }
 
             PropertyChanges {
@@ -301,11 +302,10 @@ Item {
             PropertyChanges {
                 target: dateLabel
 
-                height: dateLabel.paintedHeight
                 width: main.width
 
                 fontSizeMode: Text.Fit
-                minimumPixelSize: Math.min(0.7 * theme.smallestFont.pixelSize, timeLabel.height)
+                font.minimumPixelSize: Math.max(theme.smallestFont.pixelSize, timeLabel.height)
                 elide: Text.ElideRight
                 wrapMode: Text.WordWrap
             }
